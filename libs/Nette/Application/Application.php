@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette,
+	Nette\Environment;
 
 
 
@@ -18,15 +23,15 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
  */
-class Application extends Object
+class Application extends Nette\Object
 {
 	/** @var int */
 	public static $maxLoop = 20;
 
 	/** @var array */
 	public $defaultServices = array(
-		'Nette\Application\IRouter' => 'Nette\Application\MultiRouter',
-		'Nette\Application\IPresenterLoader' => array(__CLASS__, 'createPresenterLoader'),
+		'Nette\\Application\\IRouter' => 'Nette\Application\MultiRouter',
+		'Nette\\Application\\IPresenterLoader' => array(__CLASS__, 'createPresenterLoader'),
 	);
 
 	/** @var bool enable fault barrier? */
@@ -56,7 +61,7 @@ class Application extends Object
 	/** @var Presenter */
 	private $presenter;
 
-	/** @var ServiceLocator */
+	/** @var Nette\ServiceLocator */
 	private $serviceLocator;
 
 
@@ -71,20 +76,27 @@ class Application extends Object
 		$httpResponse = $this->getHttpResponse();
 
 		$httpRequest->setEncoding('UTF-8');
-		$httpResponse->setHeader('X-Powered-By', 'Nette Framework');
 
 		if (Environment::getVariable('baseUri') === NULL) {
 			Environment::setVariable('baseUri', $httpRequest->getUri()->getBasePath());
 		}
 
+		// autostarts session
+		$session = $this->getSession();
+		if (!$session->isStarted() && $session->exists()) {
+			$session->start();
+		}
+
+		// enable routing debuggger
+		Nette\Debug::addPanel(new RoutingDebugger($this->getRouter(), $httpRequest));
+
 		// check HTTP method
 		if ($this->allowedMethods) {
 			$method = $httpRequest->getMethod();
 			if (!in_array($method, $this->allowedMethods, TRUE)) {
-				$httpResponse->setCode(IHttpResponse::S501_NOT_IMPLEMENTED);
+				$httpResponse->setCode(Nette\Web\IHttpResponse::S501_NOT_IMPLEMENTED);
 				$httpResponse->setHeader('Allow', implode(',', $this->allowedMethods));
-				$method = htmlSpecialChars($method);
-				echo "<h1>Method $method is not implemented</h1>";
+				echo '<h1>Method ' . htmlSpecialChars($method) . ' is not implemented</h1>';
 				return;
 			}
 		}
@@ -149,17 +161,18 @@ class Application extends Object
 				}
 				break;
 
-			} catch (Exception $e) {
+			} catch (\Exception $e) {
 				// fault barrier
 				if ($this->catchExceptions === NULL) {
 					$this->catchExceptions = Environment::isProduction();
 				}
 
+				$this->onError($this, $e);
+
 				if (!$this->catchExceptions) {
+					$this->onShutdown($this, $e);
 					throw $e;
 				}
-
-				$this->onError($this, $e);
 
 				if ($repeatedError) {
 					$e = new ApplicationException('An error occured while executing error-presenter', 0, $e);
@@ -184,7 +197,7 @@ class Application extends Object
 						echo "<title>404 Not Found</title>\n\n<h1>Not Found</h1>\n\n<p>The requested URL was not found on this server.</p>";
 
 					} else {
-						Debug::processException($e, FALSE);
+						Nette\Debug::processException($e, FALSE);
 						echo "<title>500 Internal Server Error</title>\n\n<h1>Server Error</h1>\n\n",
 							"<p>The server encountered an internal error and was unable to complete your request. Please try again later.</p>";
 					}
@@ -227,12 +240,12 @@ class Application extends Object
 
 	/**
 	 * Gets the service locator (experimental).
-	 * @return IServiceLocator
+	 * @return Nette\IServiceLocator
 	 */
 	final public function getServiceLocator()
 	{
 		if ($this->serviceLocator === NULL) {
-			$this->serviceLocator = new ServiceLocator(Environment::getServiceLocator());
+			$this->serviceLocator = new Nette\ServiceLocator(Environment::getServiceLocator());
 
 			foreach ($this->defaultServices as $name => $service) {
 				if (!$this->serviceLocator->hasService($name)) {
@@ -264,7 +277,7 @@ class Application extends Object
 	 */
 	public function getRouter()
 	{
-		return $this->getServiceLocator()->getService('Nette\Application\IRouter');
+		return $this->getServiceLocator()->getService('Nette\\Application\\IRouter');
 	}
 
 
@@ -276,7 +289,7 @@ class Application extends Object
 	 */
 	public function setRouter(IRouter $router)
 	{
-		$this->getServiceLocator()->addService('Nette\Application\IRouter', $router);
+		$this->getServiceLocator()->addService('Nette\\Application\\IRouter', $router);
 		return $this;
 	}
 
@@ -288,7 +301,7 @@ class Application extends Object
 	 */
 	public function getPresenterLoader()
 	{
-		return $this->getServiceLocator()->getService('Nette\Application\IPresenterLoader');
+		return $this->getServiceLocator()->getService('Nette\\Application\\IPresenterLoader');
 	}
 
 
@@ -353,7 +366,7 @@ class Application extends Object
 
 
 	/**
-	 * @return IHttpRequest
+	 * @return Nette\Web\IHttpRequest
 	 */
 	protected function getHttpRequest()
 	{
@@ -363,7 +376,7 @@ class Application extends Object
 
 
 	/**
-	 * @return IHttpResponse
+	 * @return Nette\Web\IHttpResponse
 	 */
 	protected function getHttpResponse()
 	{
@@ -373,7 +386,7 @@ class Application extends Object
 
 
 	/**
-	 * @return Session
+	 * @return Nette\Web\Session
 	 */
 	protected function getSession($namespace = NULL)
 	{

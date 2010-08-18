@@ -4,11 +4,18 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Templates
  */
+
+namespace Nette\Templates;
+
+use Nette,
+	Nette\String,
+	Nette\Forms\Form,
+	Nette\Web\Html;
 
 
 
@@ -26,7 +33,7 @@ final class TemplateHelpers
 	 */
 	final public function __construct()
 	{
-		throw new LogicException("Cannot instantiate static class " . get_class($this));
+		throw new \LogicException("Cannot instantiate static class " . get_class($this));
 	}
 
 
@@ -38,14 +45,12 @@ final class TemplateHelpers
 	 */
 	public static function loader($helper)
 	{
-		$callback = 'Nette\Templates\TemplateHelpers::' . $helper;
-		fixCallback($callback);
-		if (is_callable($callback)) {
+		$callback = callback('Nette\Templates\TemplateHelpers', $helper);
+		if ($callback->isCallable()) {
 			return $callback;
 		}
-		$callback = 'Nette\String::' . $helper;
-		fixCallback($callback);
-		if (is_callable($callback)) {
+		$callback = callback('Nette\String', $helper);
+		if ($callback->isCallable()) {
 			return $callback;
 		}
 	}
@@ -129,7 +134,7 @@ final class TemplateHelpers
 		if (is_object($s) && ($s instanceof ITemplate || $s instanceof Html || $s instanceof Form)) {
 			$s = $s->__toString(TRUE);
 		}
-		return str_replace(']]>', ']]\x3E', json_encode($s));
+		return str_replace(']]>', ']]\x3E', Nette\Json::encode($s));
 	}
 
 
@@ -153,9 +158,11 @@ final class TemplateHelpers
 	 */
 	public static function strip($s)
 	{
-		$s = preg_replace_callback('#<(textarea|pre|script).*?</\\1#si', array(__CLASS__, 'indentCb'), $s);
-		$s = trim(preg_replace('#[ \t\r\n]+#', ' ', $s));
-		return strtr($s, "\x1F\x1E\x1D\x1A", " \t\r\n");
+		return String::replace(
+			$s,
+			'#(</textarea|</pre|</script|^).*?(?=<textarea|<pre|<script|$)#si',
+			callback(create_function('$m', 'return trim(preg_replace("#[ \t\r\n]+#", " ", $m[0]));'))
+		);
 	}
 
 
@@ -170,21 +177,11 @@ final class TemplateHelpers
 	public static function indent($s, $level = 1, $chars = "\t")
 	{
 		if ($level >= 1) {
-			$s = preg_replace_callback('#<(textarea|pre).*?</\\1#si', array(__CLASS__, 'indentCb'), $s);
+			$s = String::replace($s, '#<(textarea|pre).*?</\\1#si', callback(create_function('$m', 'return strtr($m[0], " \t\r\n", "\x1F\x1E\x1D\x1A");')));
 			$s = String::indent($s, $level, $chars);
 			$s = strtr($s, "\x1F\x1E\x1D\x1A", " \t\r\n");
 		}
 		return $s;
-	}
-
-
-
-	/**
-	 * Callback for self::indent
-	 */
-	private static function indentCb($m)
-	{
-		return strtr($m[0], " \t\r\n", "\x1F\x1E\x1D\x1A");
 	}
 
 
@@ -201,7 +198,7 @@ final class TemplateHelpers
 			return NULL;
 		}
 
-		$time = Tools::createDateTime($time);
+		$time = Nette\Tools::createDateTime($time);
 		return strpos($format, '%') === FALSE
 			? $time->format($format) // formats using date()
 			: strftime($format, $time->format('U')); // formats according to locales
@@ -235,7 +232,7 @@ final class TemplateHelpers
 	 */
 	public static function length($var)
 	{
-		return is_string($var) ? iconv_strlen($var, 'UTF-8') : count($var);
+		return is_string($var) ? String::length($var) : count($var);
 	}
 
 
@@ -250,20 +247,6 @@ final class TemplateHelpers
 	public static function replace($subject, $search, $replacement = '')
 	{
 		return str_replace($search, $replacement, $subject);
-	}
-
-
-
-	/**
-	 * Performs a regular expression search and replace.
-	 * @param  string
-	 * @param  string
-	 * @param  string
-	 * @return string
-	 */
-	public static function replaceRe($subject, $pattern, $replacement = '')
-	{
-		return preg_replace($pattern, $replacement, $subject);
 	}
 
 

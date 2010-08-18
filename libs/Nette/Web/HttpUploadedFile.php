@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Web
  */
+
+namespace Nette\Web;
+
+use Nette;
 
 
 
@@ -22,12 +26,12 @@
  * @property-read string $contentType
  * @property-read int $size
  * @property-read string $temporaryFile
- * @property-read Image $image
+ * @property-read Nette\Image $image
  * @property-read int $error
  * @property-read array $imageSize
  * @property-read bool $ok
  */
-class HttpUploadedFile extends Object
+class HttpUploadedFile extends Nette\Object
 {
 	/* @var string */
 	private $name;
@@ -54,9 +58,6 @@ class HttpUploadedFile extends Object
 				return; // or throw exception?
 			}
 		}
-		//if (!is_uploaded_file($value['tmp_name'])) {
-			//throw new InvalidStateException("Filename '$value[tmp_name]' is not a valid uploaded file.");
-		//}
 		$this->name = $value['name'];
 		$this->size = $value['size'];
 		$this->tmpName = $value['tmp_name'];
@@ -83,20 +84,7 @@ class HttpUploadedFile extends Object
 	public function getContentType()
 	{
 		if ($this->isOk() && $this->type === NULL) {
-			$info = getimagesize($this->tmpName);
-			if (isset($info['mime'])) {
-				$this->type = $info['mime'];
-
-			} elseif (extension_loaded('fileinfo')) {
-				$this->type = finfo_file(finfo_open(FILEINFO_MIME), $this->tmpName);
-
-			} elseif (function_exists('mime_content_type')) {
-				$this->type = mime_content_type($this->tmpName);
-			}
-
-			if (!$this->type) {
-				$this->type = 'application/octet-stream';
-			}
+			$this->type = Nette\Tools::detectMimeType($this->tmpName);
 		}
 		return $this->type;
 	}
@@ -161,20 +149,21 @@ class HttpUploadedFile extends Object
 	/**
 	 * Move uploaded file to new location.
 	 * @param  string
-	 * @return void
+	 * @return HttpUploadedFile  provides a fluent interface
 	 */
 	public function move($dest)
 	{
 		$dir = dirname($dest);
-		if (@mkdir($dir, 0755, TRUE)) { // intentionally @
+		if (@mkdir($dir, 0755, TRUE)) { // @ - $dir may already exist
 			chmod($dir, 0755);
 		}
-		if (!move_uploaded_file($this->tmpName, $dest)) {
-			throw new InvalidStateException("Unable to move uploaded file '$this->tmpName' to '$dest'.");
+		$func = is_uploaded_file($this->tmpName) ? 'move_uploaded_file' : 'rename';
+		if (!$func($this->tmpName, $dest)) {
+			throw new \InvalidStateException("Unable to move uploaded file '$this->tmpName' to '$dest'.");
 		}
 		chmod($dest, 0644);
 		$this->tmpName = $dest;
-		return TRUE; // back compatibility
+		return $this;
 	}
 
 
@@ -192,11 +181,20 @@ class HttpUploadedFile extends Object
 
 	/**
 	 * Returns the image.
-	 * @return Image
+	 * @return Nette\Image
 	 */
+	public function toImage()
+	{
+		return Nette\Image::fromFile($this->tmpName);
+	}
+
+
+
+	/** @deprecated */
 	public function getImage()
 	{
-		return Image::fromFile($this->tmpName);
+		trigger_error(__METHOD__ . '() is deprecated; use toImage() instead.', E_USER_WARNING);
+		return $this->toImage();
 	}
 
 

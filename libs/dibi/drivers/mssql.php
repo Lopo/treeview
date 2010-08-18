@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -24,7 +24,7 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
 class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 {
@@ -96,7 +96,7 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 		$this->resultSet = @mssql_query($sql, $this->connection); // intentionally @
 
 		if ($this->resultSet === FALSE) {
-			throw new DibiDriverException('Query error', 0, $sql);
+			throw new DibiDriverException(mssql_get_last_message(), 0, $sql);
 		}
 
 		return is_resource($this->resultSet) ? clone $this : NULL;
@@ -201,8 +201,7 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 
 		case dibi::IDENTIFIER:
 			// @see http://msdn.microsoft.com/en-us/library/ms176027.aspx
-			$value = str_replace(array('[', ']'), array('[[', ']]'), $value);
-			return '[' . str_replace('.', '].[', $value) . ']';
+			return '[' . str_replace(array('[', ']'), array('[[', ']]'), $value) . ']';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -339,57 +338,6 @@ class DibiMsSqlDriver extends DibiObject implements IDibiDriver
 	public function getResultResource()
 	{
 		return $this->resultSet;
-	}
-
-
-
-	/********************* reflection ****************d*g**/
-
-
-
-	/**
-	 * Returns list of tables.
-	 * @return array
-	 */
-	public function getTables()
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all columns in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getColumns($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all indexes in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getIndexes($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all foreign keys in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getForeignKeys($table)
-	{
-		throw new NotImplementedException;
 	}
 
 }

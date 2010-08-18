@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette,
+	Nette\ObjectMixin;
 
 
 
@@ -18,7 +23,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class PropertyReflection extends ReflectionProperty
+class PropertyReflection extends \ReflectionProperty
 {
 
 	public function __toString()
@@ -33,22 +38,11 @@ class PropertyReflection extends ReflectionProperty
 
 
 	/**
-	 * @return PropertyReflection
-	 * @ignore internal
-	 */
-	public static function import(ReflectionProperty $ref)
-	{
-		return new self($ref->getDeclaringClass()->getName(), $ref->getName());
-	}
-
-
-
-	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
 	public function getDeclaringClass()
 	{
-		return ClassReflection::import(parent::getDeclaringClass());
+		return new ClassReflection(parent::getDeclaringClass()->getName());
 	}
 
 
@@ -99,11 +93,11 @@ class PropertyReflection extends ReflectionProperty
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
-	public function getReflection()
+	public /**/static/**/ function getReflection()
 	{
-		return new ClassReflection($this);
+		return new Nette\Reflection\ClassReflection(/*5.2*$this*//**/get_called_class()/**/);
 	}
 
 
@@ -138,7 +132,7 @@ class PropertyReflection extends ReflectionProperty
 
 	public function __unset($name)
 	{
-		throw new MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
+		throw new \MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
 	}
 
 }

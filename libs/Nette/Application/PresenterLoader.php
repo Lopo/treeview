@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -53,7 +57,7 @@ class PresenterLoader implements IPresenterLoader
 			return $class;
 		}
 
-		if (!is_string($name) || !preg_match("#^[a-zA-Z\x7f-\xff][a-zA-Z0-9\x7f-\xff:]*$#", $name)) {
+		if (!is_string($name) || !Nette\String::match($name, "#^[a-zA-Z\x7f-\xff][a-zA-Z0-9\x7f-\xff:]*$#")) {
 			throw new InvalidPresenterException("Presenter name must be alphanumeric string, '$name' is invalid.");
 		}
 
@@ -63,7 +67,7 @@ class PresenterLoader implements IPresenterLoader
 			// internal autoloading
 			$file = $this->formatPresenterFile($name);
 			if (is_file($file) && is_readable($file)) {
-				LimitedScope::load($file);
+				Nette\Loaders\LimitedScope::load($file);
 			}
 
 			if (!class_exists($class)) {
@@ -71,10 +75,10 @@ class PresenterLoader implements IPresenterLoader
 			}
 		}
 
-		$reflection = new ClassReflection($class);
+		$reflection = new Nette\Reflection\ClassReflection($class);
 		$class = $reflection->getName();
 
-		if (!$reflection->implementsInterface('IPresenter')) {
+		if (!$reflection->implementsInterface('Nette\Application\IPresenter')) {
 			throw new InvalidPresenterException("Cannot load presenter '$name', class '$class' is not Nette\\Application\\IPresenter implementor.");
 		}
 
@@ -107,9 +111,8 @@ class PresenterLoader implements IPresenterLoader
 	 */
 	public function formatPresenterClass($presenter)
 	{
-		// PHP 5.3
-		
-		return strtr($presenter, ':', '_') . 'Presenter';
+		/*5.2*return strtr($presenter, ':', '_') . 'Presenter';*/
+		return str_replace(':', 'Module\\', $presenter) . 'Presenter';
 	}
 
 
@@ -121,9 +124,8 @@ class PresenterLoader implements IPresenterLoader
 	 */
 	public function unformatPresenterClass($class)
 	{
-		// PHP 5.3
-		
-		return strtr(substr($class, 0, -9), '_', ':');
+		/*5.2*return strtr(substr($class, 0, -9), '_', ':');*/
+		return str_replace('Module\\', ':', substr($class, 0, -9));
 	}
 
 

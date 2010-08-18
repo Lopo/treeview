@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -51,7 +56,7 @@ abstract class TextBase extends FormControl
 	{
 		$value = $this->value;
 		foreach ($this->filters as $filter) {
-			$value = (string) call_user_func($filter, $value);
+			$value = (string) $filter/*5.2*->invoke*/($value);
 		}
 		return $value === $this->translate($this->emptyValue) ? '' : $value;
 	}
@@ -65,7 +70,7 @@ abstract class TextBase extends FormControl
 	 */
 	public function setEmptyValue($value)
 	{
-		$this->emptyValue = $value;
+		$this->emptyValue = (string) $value;
 		return $this;
 	}
 
@@ -89,21 +94,31 @@ abstract class TextBase extends FormControl
 	 */
 	public function addFilter($filter)
 	{
-		fixCallback($filter);
-		if (!is_callable($filter)) {
-			$able = is_callable($filter, TRUE, $textual);
-			throw new InvalidArgumentException("Filter '$textual' is not " . ($able ? 'callable.' : 'valid PHP callback.'));
-		}
-		$this->filters[] = $filter;
+		$this->filters[] = callback($filter);
 		return $this;
+	}
+
+
+
+	public function getControl()
+	{
+		return parent::getControl()->data('nette-empty-value', $this->emptyValue === '' ? NULL : $this->translate($this->emptyValue));
 	}
 
 
 
 	public function notifyRule(Rule $rule)
 	{
-		if (is_string($rule->operation) && strcasecmp($rule->operation, ':float') === 0) {
-			$this->addFilter(array(__CLASS__, 'filterFloat'));
+		if (is_string($rule->operation) && !$rule->isNegative) {
+			if (strcasecmp($rule->operation, ':float') === 0) {
+				$this->addFilter(callback(__CLASS__, 'filterFloat'));
+
+			} elseif (strcasecmp($rule->operation, ':length') === 0) {
+				$this->control->maxlength = is_array($rule->arg) ? $rule->arg[1] : $rule->arg;
+
+			} elseif (strcasecmp($rule->operation, ':maxLength') === 0) {
+				$this->control->maxlength = $rule->arg;
+			}
 		}
 
 		parent::notifyRule($rule);
@@ -119,7 +134,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateMinLength(TextBase $control, $length)
 	{
-		return iconv_strlen($control->getValue(), 'UTF-8') >= $length;
+		return String::length($control->getValue()) >= $length;
 	}
 
 
@@ -132,7 +147,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateMaxLength(TextBase $control, $length)
 	{
-		return iconv_strlen($control->getValue(), 'UTF-8') <= $length;
+		return String::length($control->getValue()) <= $length;
 	}
 
 
@@ -148,7 +163,7 @@ abstract class TextBase extends FormControl
 		if (!is_array($range)) {
 			$range = array($range, $range);
 		}
-		$len = iconv_strlen($control->getValue(), 'UTF-8');
+		$len = String::length($control->getValue());
 		return ($range[0] === NULL || $len >= $range[0]) && ($range[1] === NULL || $len <= $range[1]);
 	}
 
@@ -162,10 +177,10 @@ abstract class TextBase extends FormControl
 	public static function validateEmail(TextBase $control)
 	{
 		$atom = "[-a-z0-9!#$%&'*+/=?^_`{|}~]"; // RFC 5322 unquoted characters in local-part
-		$localPart = "(\"([ !\\x23-\\x5B\\x5D-\\x7E]*|\\\\[ -~])+\"|$atom+(\\.$atom+)*)"; // quoted or unquoted
+		$localPart = "(?:\"(?:[ !\\x23-\\x5B\\x5D-\\x7E]*|\\\\[ -~])+\"|$atom+(?:\\.$atom+)*)"; // quoted or unquoted
 		$chars = "a-z0-9\x80-\xFF"; // superset of IDN
-		$domain = "[$chars]([-$chars]{0,61}[$chars])"; // RFC 1034 one domain component
-		return (bool) preg_match("(^$localPart@($domain?\\.)+[a-z]{2,14}\\z)i", $control->getValue()); // strict top-level domain
+		$domain = "[$chars](?:[-$chars]{0,61}[$chars])"; // RFC 1034 one domain component
+		return (bool) String::match($control->getValue(), "(^$localPart@(?:$domain?\\.)+[-$chars]{2,19}\\z)i");
 	}
 
 
@@ -177,7 +192,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateUrl(TextBase $control)
 	{
-		return (bool) preg_match('/^.+\.[a-z]{2,6}(\\/.*)?$/i', $control->getValue());
+		return (bool) String::match($control->getValue(), '/^.+\.[a-z]{2,6}(?:\\/.*)?$/i');
 	}
 
 
@@ -190,7 +205,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateRegexp(TextBase $control, $regexp)
 	{
-		return (bool) preg_match($regexp, $control->getValue());
+		return (bool) String::match($control->getValue(), $regexp);
 	}
 
 
@@ -202,7 +217,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateInteger(TextBase $control)
 	{
-		return (bool) preg_match('/^-?[0-9]+$/', $control->getValue());
+		return (bool) String::match($control->getValue(), '/^-?[0-9]+$/');
 	}
 
 
@@ -214,7 +229,7 @@ abstract class TextBase extends FormControl
 	 */
 	public static function validateFloat(TextBase $control)
 	{
-		return (bool) preg_match('/^-?[0-9]*[.,]?[0-9]+$/', $control->getValue());
+		return (bool) String::match($control->getValue(), '/^-?[0-9]*[.,]?[0-9]+$/');
 	}
 
 

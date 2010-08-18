@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette,
+	Nette\Web\HttpUploadedFile;
 
 
 
@@ -28,6 +33,7 @@ class FileUpload extends FormControl
 	{
 		parent::__construct($label);
 		$this->control->type = 'file';
+		$this->control->data['nette-rules'] = FALSE;
 	}
 
 
@@ -42,7 +48,7 @@ class FileUpload extends FormControl
 	{
 		if ($form instanceof Form) {
 			if ($form->getMethod() !== Form::POST) {
-				throw new InvalidStateException('File upload requires method POST.');
+				throw new \InvalidStateException('File upload requires method POST.');
 			}
 			$form->getElementPrototype()->enctype = 'multipart/form-data';
 		}
@@ -109,11 +115,7 @@ class FileUpload extends FormControl
 	{
 		$file = $control->getValue();
 		if ($file instanceof HttpUploadedFile) {
-			$type = $file->getContentType();
-			$type = strtolower(preg_replace('#\s*;.*$#', '', $type));
-			if (!$type) {
-				return FALSE; // cannot verify :-(
-			}
+			$type = strtolower($file->getContentType());
 			$mimeTypes = is_array($mimeType) ? $mimeType : explode(',', $mimeType);
 			if (in_array($type, $mimeTypes, TRUE)) {
 				return TRUE;
@@ -123,6 +125,19 @@ class FileUpload extends FormControl
 			}
 		}
 		return FALSE;
+	}
+
+
+
+	/**
+	 * Image validator: is file image?
+	 * @param  FileUpload
+	 * @return bool
+	 */
+	public static function validateImage(FileUpload $control)
+	{
+		$file = $control->getValue();
+		return $file instanceof HttpUploadedFile && $file->isImage();
 	}
 
 }

@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Web
  */
+
+namespace Nette\Web;
+
+use Nette;
 
 
 
@@ -26,7 +30,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Web
  */
-class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
+class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAggregate
 {
 	/** @var string  element's name */
 	private $name;
@@ -57,7 +61,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 */
 	public static function el($name = NULL, $attrs = NULL)
 	{
-		$el = new self ;
+		$el = new static;
 		$parts = explode(' ', $name, 2);
 		$el->setName($parts[0]);
 
@@ -69,8 +73,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 		}
 
 		if (isset($parts[1])) {
-			preg_match_all('#([a-z0-9:-]+)(?:=(["\'])?(.*?)(?(2)\\2|\s))?#i', $parts[1] . ' ', $parts, PREG_SET_ORDER);
-			foreach ($parts as $m) {
+			foreach (Nette\String::matchAll($parts[1] . ' ', '#([a-z0-9:-]+)(?:=(["\'])?(.*?)(?(2)\\2|\s))?#i') as $m) {
 				$el->attrs[$m[1]] = isset($m[3]) ? $m[3] : TRUE;
 			}
 		}
@@ -85,12 +88,12 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 * @param  string
 	 * @param  bool  Is element empty?
 	 * @return Html  provides a fluent interface
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	final public function setName($name, $isEmpty = NULL)
 	{
 		if ($name !== NULL && !is_string($name)) {
-			throw new InvalidArgumentException("Name must be string or NULL, " . gettype($name) ." given.");
+			throw new \InvalidArgumentException("Name must be string or NULL, " . gettype($name) ." given.");
 		}
 
 		$this->name = $name;
@@ -179,7 +182,9 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 			}
 		}
 
-		if (count($args) === 1) { // set
+		if (count($args) === 0) { // invalid
+
+		} elseif (count($args) === 1) { // set
 			$this->attrs[$m] = $args[0];
 
 		} elseif ($args[0] == NULL) { // intentionally ==
@@ -219,7 +224,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 * Sets element's HTML content.
 	 * @param  string
 	 * @return Html  provides a fluent interface
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	final public function setHtml($html)
 	{
@@ -227,7 +232,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 			$html = '';
 
 		} elseif (is_array($html)) {
-			throw new InvalidArgumentException("Textual content must be a scalar, " . gettype($html) ." given.");
+			throw new \InvalidArgumentException("Textual content must be a scalar, " . gettype($html) ." given.");
 
 		} else {
 			$html = (string) $html;
@@ -241,15 +246,18 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 
 
 	/**
-	 * Gets element's textual content.
+	 * Returns element's HTML content.
 	 * @return string
 	 */
 	final public function getHtml()
 	{
 		$s = '';
 		foreach ($this->children as $child) {
-			if (is_object($child)) return FALSE;
-			$s .= $child;
+			if (is_object($child)) {
+				$s .= $child->render();
+			} else {
+				$s .= $child;
+			}
 		}
 		return $s;
 	}
@@ -260,12 +268,12 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 * Sets element's textual content.
 	 * @param  string
 	 * @return Html  provides a fluent interface
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	final public function setText($text)
 	{
 		if (!is_array($text)) {
-			$text = str_replace(array('&', '<', '>'), array('&amp;', '&lt;', '&gt;'), (string) $text);
+			$text = htmlspecialchars((string) $text, ENT_NOQUOTES);
 		}
 		return $this->setHtml($text);
 	}
@@ -273,11 +281,12 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 
 
 	/**
-	 * @deprecated
+	 * Returns element's textual content.
+	 * @return string
 	 */
 	final public function getText()
 	{
-		return $this->getHtml();
+		return html_entity_decode(strip_tags($this->getHtml()), ENT_QUOTES, 'UTF-8');
 	}
 
 
@@ -302,7 +311,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 */
 	final public function create($name, $attrs = NULL)
 	{
-		$this->insert(NULL, $child = self ::el($name, $attrs));
+		$this->insert(NULL, $child = static::el($name, $attrs));
 		return $child;
 	}
 
@@ -314,7 +323,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 * @param  Html node
 	 * @param  bool
 	 * @return Html  provides a fluent interface
-	 * @throws Exception
+	 * @throws \Exception
 	 */
 	public function insert($index, $child, $replace = FALSE)
 	{
@@ -327,7 +336,7 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 			}
 
 		} else {
-			throw new InvalidArgumentException("Child node must be scalar or Html object, " . (is_object($child) ? get_class($child) : gettype($child)) ." given.");
+			throw new \InvalidArgumentException("Child node must be scalar or Html object, " . (is_object($child) ? get_class($child) : gettype($child)) ." given.");
 		}
 
 		return $this;
@@ -412,16 +421,16 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	 * Iterates over a elements.
 	 * @param  bool    recursive?
 	 * @param  string  class types filter
-	 * @return RecursiveIterator
+	 * @return \RecursiveIterator
 	 */
 	final public function getIterator($deep = FALSE)
 	{
 		if ($deep) {
-			$deep = $deep > 0 ? RecursiveIteratorIterator::SELF_FIRST : RecursiveIteratorIterator::CHILD_FIRST;
-			return new RecursiveIteratorIterator(new RecursiveHtmlIterator($this->children), $deep);
+			$deep = $deep > 0 ? \RecursiveIteratorIterator::SELF_FIRST : \RecursiveIteratorIterator::CHILD_FIRST;
+			return new \RecursiveIteratorIterator(new Nette\GenericRecursiveIterator(new \ArrayIterator($this->children)), $deep);
 
 		} else {
-			return new RecursiveHtmlIterator($this->children);
+			return new Nette\GenericRecursiveIterator(new \ArrayIterator($this->children));
 		}
 	}
 
@@ -447,25 +456,23 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 	{
 		$s = $this->startTag();
 
-		// empty elements are finished now
-		if ($this->isEmpty) {
-			return $s;
-		}
-
-		// add content
-		if ($indent !== NULL) {
-			$indent++;
-		}
-		foreach ($this->children as $child) {
-			if (is_object($child)) {
-				$s .= $child->render($indent);
-			} else {
-				$s .= $child;
+		if (!$this->isEmpty) {
+			// add content
+			if ($indent !== NULL) {
+				$indent++;
 			}
+			foreach ($this->children as $child) {
+				if (is_object($child)) {
+					$s .= $child->render($indent);
+				} else {
+					$s .= $child;
+				}
+			}
+
+			// add end tag
+			$s .= $this->endTag();
 		}
 
-		// add end tag
-		$s .= $this->endTag();
 		if ($indent !== NULL) {
 			return "\n" . str_repeat("\t", $indent - 1) . $s . "\n" . str_repeat("\t", max(0, $indent - 2));
 		}
@@ -533,6 +540,14 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 				continue;
 
 			} elseif (is_array($value)) {
+				if ($key === 'data') {
+					foreach ($value as $k => $v) {
+						if ($v !== NULL && $v !== FALSE) {
+							$s .= ' data-' . $k . '="' . htmlspecialchars((string) $v) . '"';
+						}
+					}
+					continue;
+				}
 
 				// prepare into temporary array
 				$tmp = NULL;
@@ -551,11 +566,10 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 				$value = (string) $value;
 			}
 
-			// add new attribute
-			$s .= ' ' . $key . '="'
-				. str_replace(array('&', '"', '<', '>', '@'), array('&amp;', '&quot;', '&lt;', '&gt;', '&#64;'), $value)
-					. '"';
+			$s .= ' ' . $key . '="' . htmlspecialchars($value) . '"';
 		}
+
+		$s = str_replace('@', '&#64;', $s);
 		return $s;
 	}
 
@@ -571,39 +585,6 @@ class Html extends Object implements ArrayAccess, Countable, IteratorAggregate
 				$this->children[$key] = clone $value;
 			}
 		}
-	}
-
-}
-
-
-
-/**
- * Recursive HTML element iterator. See Html::getIterator().
- *
- * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @package    Nette\Web
- */
-class RecursiveHtmlIterator extends RecursiveArrayIterator implements Countable
-{
-
-	/**
-	 * The sub-iterator for the current element.
-	 * @return RecursiveIterator
-	 */
-	public function getChildren()
-	{
-		return $this->current()->getIterator();
-	}
-
-
-
-	/**
-	 * Returns the count of elements.
-	 * @return int
-	 */
-	public function count()
-	{
-		return iterator_count($this);
 	}
 
 }

@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette,
+	Nette\ObjectMixin;
 
 
 
@@ -18,7 +23,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class ClassReflection extends ReflectionClass
+class ClassReflection extends \ReflectionClass
 {
 
 	/** @var array (method => array(type => callback)) */
@@ -28,11 +33,11 @@ class ClassReflection extends ReflectionClass
 
 	/**
 	 * @param  string|object
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
 	public static function from($class)
 	{
-		return new self($class);
+		return new static($class);
 	}
 
 
@@ -67,12 +72,7 @@ class ClassReflection extends ReflectionClass
 	public function setExtensionMethod($name, $callback)
 	{
 		$l = & self::$extMethods[strtolower($name)];
-		fixCallback($callback);
-		if (!is_callable($callback)) {
-			$able = is_callable($callback, TRUE, $textual);
-			throw new InvalidArgumentException("Extension method handler '$textual' is not " . ($able ? 'callable.' : 'valid PHP callback.'));
-		}
-		$l[strtolower($this->getName())] = $callback;
+		$l[strtolower($this->getName())] = callback($callback);
 		$l[''] = NULL;
 		return $this;
 	}
@@ -86,18 +86,18 @@ class ClassReflection extends ReflectionClass
 	 */
 	public function getExtensionMethod($name)
 	{
-		if (self::$extMethods === NULL || $name === NULL) { // for backwards compatibility
+		/*5.2* if (self::$extMethods === NULL || $name === NULL) { // for backwards compatibility
 			$list = get_defined_functions(); // names are lowercase!
 			foreach ($list['user'] as $fce) {
 				$pair = explode('_prototype_', $fce);
 				if (count($pair) === 2) {
-					self::$extMethods[$pair[1]][$pair[0]] = $fce;
+					self::$extMethods[$pair[1]][$pair[0]] = callback($fce);
 					self::$extMethods[$pair[1]][''] = NULL;
 				}
 			}
 			if ($name === NULL) return NULL;
 		}
-		
+		*/
 
 		$class = strtolower($this->getName());
 		$l = & self::$extMethods[strtolower($name)];
@@ -132,18 +132,7 @@ class ClassReflection extends ReflectionClass
 
 
 	/**
-	 * @return ClassReflection
-	 * @ignore internal
-	 */
-	public static function import(ReflectionClass $ref)
-	{
-		return new self($ref->getName());
-	}
-
-
-
-	/**
-	 * @return MethodReflection
+	 * @return Nette\Reflection\MethodReflection
 	 */
 	public function getConstructor()
 	{
@@ -153,62 +142,72 @@ class ClassReflection extends ReflectionClass
 
 
 	/**
-	 * @return ExtensionReflection
+	 * @return Nette\Reflection\ExtensionReflection
 	 */
 	public function getExtension()
 	{
-		return ($ref = parent::getExtension()) ? ExtensionReflection::import($ref) : NULL;
+		return ($name = $this->getExtensionName()) ? new ExtensionReflection($name) : NULL;
 	}
 
 
 
 	public function getInterfaces()
 	{
-		return array_map('ClassReflection::import', parent::getInterfaces());
+		$res = array();
+		foreach (parent::getInterfaceNames() as $val) {
+			$res[$val] = new static($val);
+		}
+		return $res;
 	}
 
 
 
 	/**
-	 * @return MethodReflection
+	 * @return Nette\Reflection\MethodReflection
 	 */
 	public function getMethod($name)
 	{
-		return MethodReflection::import(parent::getMethod($name));
+		return new MethodReflection($this->getName(), $name);
 	}
 
 
 
 	public function getMethods($filter = -1)
 	{
-		return array_map('MethodReflection::import', parent::getMethods($filter));
+		foreach ($res = parent::getMethods($filter) as $key => $val) {
+			$res[$key] = new MethodReflection($this->getName(), $val->getName());
+		}
+		return $res;
 	}
 
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
 	public function getParentClass()
 	{
-		return ($ref = parent::getParentClass()) ? self::import($ref) : NULL;
+		return ($ref = parent::getParentClass()) ? new static($ref->getName()) : NULL;
 	}
 
 
 
 	public function getProperties($filter = -1)
 	{
-		return array_map('PropertyReflection::import', parent::getProperties($filter));
+		foreach ($res = parent::getProperties($filter) as $key => $val) {
+			$res[$key] = new PropertyReflection($this->getName(), $val->getName());
+		}
+		return $res;
 	}
 
 
 
 	/**
-	 * @return PropertyReflection
+	 * @return Nette\Reflection\PropertyReflection
 	 */
 	public function getProperty($name)
 	{
-		return PropertyReflection::import(parent::getProperty($name));
+		return new PropertyReflection($this->getName(), $name);
 	}
 
 
@@ -259,11 +258,11 @@ class ClassReflection extends ReflectionClass
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
-	public function getReflection()
+	public /**/static/**/ function getReflection()
 	{
-		return new ClassReflection($this);
+		return new Nette\Reflection\ClassReflection(/*5.2*$this*//**/get_called_class()/**/);
 	}
 
 
@@ -298,7 +297,7 @@ class ClassReflection extends ReflectionClass
 
 	public function __unset($name)
 	{
-		throw new MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
+		throw new \MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
 	}
 
 }

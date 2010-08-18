@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -24,9 +24,9 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiSqlite3Driver extends DibiObject implements IDibiDriver
+class DibiSqlite3Driver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	/** @var SQLite3  Connection resource */
 	private $connection;
@@ -215,7 +215,7 @@ class DibiSqlite3Driver extends DibiObject implements IDibiDriver
 			return "X'" . bin2hex((string) $value) . "'";
 
 		case dibi::IDENTIFIER:
-			return '[' . str_replace('.', '].[', strtr($value, '[]', '  ')) . ']';
+			return '[' . strtr($value, '[]', '  ') . ']';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -363,7 +363,7 @@ class DibiSqlite3Driver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ****************d*g**/
+	/********************* IDibiReflector ****************d*g**/
 
 
 

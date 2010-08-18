@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Security
  */
+
+namespace Nette\Security;
+
+use Nette;
 
 
 
@@ -38,6 +42,6 @@ interface IAuthorizator
 	 * @param  string  privilege
 	 * @return bool
 	 */
-	function isAllowed($role = self::ALL, $resource = self::ALL, $privilege = self::ALL);
+	function isAllowed($role/*5.2* = self::ALL*/, $resource/*5.2* = self::ALL*/, $privilege/*5.2* = self::ALL*/);
 
 }

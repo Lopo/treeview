@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -19,7 +23,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
  */
-class Link extends Object
+class Link extends Nette\Object
 {
 	/** @var PresenterComponent */
 	private $component;
@@ -103,9 +107,8 @@ class Link extends Object
 		try {
 			return $this->component->link($this->destination, $this->params);
 
-		} catch (Exception $e) {
-			trigger_error($e->getMessage(), E_USER_WARNING);
-			return '';
+		} catch (\Exception $e) {
+			Nette\Debug::toStringException($e);
 		}
 	}
 

@@ -4,11 +4,17 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette,
+	Nette\ObjectMixin,
+	Nette\Annotations;
 
 
 
@@ -18,7 +24,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class ExtensionReflection extends ReflectionExtension
+class ExtensionReflection extends \ReflectionExtension
 {
 
 	public function __toString()
@@ -32,27 +38,23 @@ class ExtensionReflection extends ReflectionExtension
 
 
 
-	/**
-	 * @return ExtensionReflection
-	 * @ignore internal
-	 */
-	public static function import(ReflectionExtension $ref)
-	{
-		return new self($ref->getName());
-	}
-
-
-
 	public function getClasses()
 	{
-		return array_map('ClassReflection::import', parent::getClasses());
+		$res = array();
+		foreach (parent::getClassNames() as $val) {
+			$res[$val] = new ClassReflection($val);
+		}
+		return $res;
 	}
 
 
 
 	public function getFunctions()
 	{
-		return array_map('FunctionReflection::import', parent::getFunctions());
+		foreach ($res = parent::getFunctions() as $key => $val) {
+			$res[$key] = new FunctionReflection($key);
+		}
+		return $res;
 	}
 
 
@@ -62,11 +64,11 @@ class ExtensionReflection extends ReflectionExtension
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
-	public function getReflection()
+	public /**/static/**/ function getReflection()
 	{
-		return new ClassReflection($this);
+		return new Nette\Reflection\ClassReflection(/*5.2*$this*//**/get_called_class()/**/);
 	}
 
 
@@ -101,7 +103,7 @@ class ExtensionReflection extends ReflectionExtension
 
 	public function __unset($name)
 	{
-		throw new MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
+		throw new \MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
 	}
 
 }

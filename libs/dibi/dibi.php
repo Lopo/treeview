@@ -33,39 +33,68 @@ if (version_compare(PHP_VERSION, '5.2.0', '<')) {
  * Compatibility with Nette
  */
 if (!class_exists('NotImplementedException', FALSE)) {
+	/** @package exceptions */
 	class NotImplementedException extends LogicException {}
 }
 
 if (!class_exists('NotSupportedException', FALSE)) {
+	/** @package exceptions */
 	class NotSupportedException extends LogicException {}
 }
 
 if (!class_exists('MemberAccessException', FALSE)) {
+	/** @package exceptions */
 	class MemberAccessException extends LogicException {}
 }
 
 if (!class_exists('InvalidStateException', FALSE)) {
+	/** @package exceptions */
 	class InvalidStateException extends RuntimeException {}
 }
 
 if (!class_exists('IOException', FALSE)) {
+	/** @package exceptions */
 	class IOException extends RuntimeException {}
 }
 
 if (!class_exists('FileNotFoundException', FALSE)) {
+	/** @package exceptions */
 	class FileNotFoundException extends IOException {}
 }
 
-if (!interface_exists(/*Nette\*/'IDebuggable', FALSE)) {
-	require_once dirname(__FILE__) . '/Nette/IDebuggable.php';
+if (!class_exists('PcreException', FALSE)) {
+	/** @package exceptions */
+	class PcreException extends Exception {
+
+		public function __construct()
+		{
+			static $messages = array(
+				PREG_INTERNAL_ERROR => 'Internal error.',
+				PREG_BACKTRACK_LIMIT_ERROR => 'Backtrack limit was exhausted.',
+				PREG_RECURSION_LIMIT_ERROR => 'Recursion limit was exhausted.',
+				PREG_BAD_UTF8_ERROR => 'Malformed UTF-8 data.',
+				5 => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point.', // PREG_BAD_UTF8_OFFSET_ERROR
+			);
+			$code = preg_last_error();
+			parent::__construct(isset($messages[$code]) ? $messages[$code] : 'Unknown error.', $code);
+		}
+	}
+}
+
+if (!interface_exists(/*Nette\*/'IDebugPanel', FALSE)) {
+	require_once dirname(__FILE__) . '/Nette/IDebugPanel.php';
+}
+
+if (!class_exists('DateTime53', FALSE)) {
+	require_once dirname(__FILE__) . '/Nette/DateTime53.php';
 }
 
 
 
 /**
- * Back-compatibility
+ * @deprecated
  */
-class DibiVariable extends DateTime
+class DibiVariable extends DateTime53
 {
 	function __construct($val)
 	{
@@ -135,16 +164,10 @@ class dibi
 	 * dibi version
 	 */
 	const VERSION = '1.3-dev';
-	const REVISION = 'c374758 released on 2010-01-03';
+	const REVISION = '$WCREV$ released on $WCDATE$';
 	/**#@-*/
 
-	/**#@+
-	 * Configuration options
-	 */
-	const RESULT_WITH_TABLES = 'resultWithTables'; // for MySQL
-	const ROW_CLASS = 'rowClass';
 	const ASC = 'ASC', DESC = 'DESC';
-	/**#@-*/
 
 	/** @var DibiConnection[]  Connection registry storage for DibiConnection objects */
 	private static $registry = array();
@@ -194,8 +217,8 @@ class dibi
 
 	/**
 	 * Creates a new DibiConnection object and connects it to specified database.
-	 * @param  array|string|ArrayObject connection parameters
-	 * @param  string       connection name
+	 * @param  mixed   connection parameters
+	 * @param  string  connection name
 	 * @return DibiConnection
 	 * @throws DibiException
 	 */
@@ -587,7 +610,7 @@ class dibi
 	 */
 	public static function datetime($time = NULL)
 	{
-		return new DateTime(is_numeric($time) ? date('Y-m-d H:i:s', $time) : $time);
+		return new DateTime53(is_numeric($time) ? date('Y-m-d H:i:s', $time) : $time);
 	}
 
 
@@ -597,7 +620,7 @@ class dibi
 	 */
 	public static function date($date = NULL)
 	{
-		return new DateTime(is_numeric($date) ? date('Y-m-d', $date) : $date);
+		return new DateTime53(is_numeric($date) ? date('Y-m-d', $date) : $date);
 	}
 
 
@@ -695,7 +718,7 @@ class dibi
 
 			$sql = wordwrap($sql, 100);
 			$sql = htmlSpecialChars($sql);
-			$sql = preg_replace("#\n{2,}#", "\n", $sql);
+			$sql = preg_replace("#([ \t]*\r?\n){2,}#", "\n", $sql);
 
 			// syntax highlight
 			$sql = preg_replace_callback("#(/\\*.+?\\*/)|(\\*\\*.+?\\*\\*)|(?<=[\\s,(])($keywords1)(?=[\\s,)])|(?<=[\\s,(=])($keywords2)(?=[\\s,)=])#is", array('dibi', 'highlightCallback'), $sql);
@@ -725,25 +748,6 @@ class dibi
 
 		if (!empty($matches[4])) // other keywords
 			return '<strong style="color:green">' . $matches[4] . '</strong>';
-	}
-
-
-
-	/**
-	 * Returns brief descriptions.
-	 * @return string
-	 * @return array
-	 */
-	public static function getColophon($sender = NULL)
-	{
-		$arr = array(
-			'Number of SQL queries: ' . dibi::$numOfQueries
-			. (dibi::$totalTime === NULL ? '' : ', elapsed time: ' . sprintf('%0.3f', dibi::$totalTime * 1000) . ' ms'),
-		);
-		if ($sender === 'bluescreen') {
-			$arr[] = 'dibi ' . dibi::VERSION . ' (revision ' . dibi::REVISION . ')';
-		}
-		return $arr;
 	}
 
 }

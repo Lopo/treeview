@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -23,7 +27,7 @@
  * @property   array $post
  * @property   array $files
  */
-final class PresenterRequest extends FreezableObject
+final class PresenterRequest extends Nette\FreezableObject
 {
 	/** method */
 	const FORWARD = 'FORWARD';

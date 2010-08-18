@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Web
  */
+
+namespace Nette\Web;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Web
  */
-final class SessionNamespace extends Object implements IteratorAggregate, ArrayAccess
+final class SessionNamespace extends Nette\Object implements \IteratorAggregate, \ArrayAccess
 {
 	/** @var array  session data storage */
 	private $data;
@@ -44,14 +48,14 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Returns an iterator over all namespace variables.
-	 * @return ArrayIterator
+	 * @return \ArrayIterator
 	 */
 	public function getIterator()
 	{
 		if (isset($this->data)) {
-			return new ArrayIterator($this->data);
+			return new \ArrayIterator($this->data);
 		} else {
-			return new ArrayIterator;
+			return new \ArrayIterator;
 		}
 	}
 
@@ -59,7 +63,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Sets a variable in this session namespace.
-	 *
 	 * @param  string  name
 	 * @param  mixed   value
 	 * @return void
@@ -68,7 +71,7 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 	{
 		$this->data[$name] = $value;
 		if (is_object($value)) {
-			$this->meta[$name]['V'] = ClassReflection::from($value)->getAnnotation('serializationVersion');
+			$this->meta[$name]['V'] = Nette\Reflection\ClassReflection::from($value)->getAnnotation('serializationVersion');
 		}
 	}
 
@@ -76,7 +79,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Gets a variable from this session namespace.
-	 *
 	 * @param  string    name
 	 * @return mixed
 	 */
@@ -93,7 +95,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Determines whether a variable in this session namespace is set.
-	 *
 	 * @param  string    name
 	 * @return bool
 	 */
@@ -106,7 +107,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Unsets a variable in this session namespace.
-	 *
 	 * @param  string    name
 	 * @return void
 	 */
@@ -119,7 +119,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Sets a variable in this session namespace.
-	 *
 	 * @param  string  name
 	 * @param  mixed   value
 	 * @return void
@@ -133,7 +132,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Gets a variable from this session namespace.
-	 *
 	 * @param  string    name
 	 * @return mixed
 	 */
@@ -146,7 +144,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Determines whether a variable in this session namespace is set.
-	 *
 	 * @param  string    name
 	 * @return bool
 	 */
@@ -159,7 +156,6 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 
 	/**
 	 * Unsets a variable in this session namespace.
-	 *
 	 * @param  string    name
 	 * @return void
 	 */
@@ -182,7 +178,7 @@ final class SessionNamespace extends Object implements IteratorAggregate, ArrayA
 			$time = NULL;
 			$whenBrowserIsClosed = TRUE;
 		} else {
-			$time = Tools::createDateTime($time)->format('U');
+			$time = Nette\Tools::createDateTime($time)->format('U');
 			$whenBrowserIsClosed = FALSE;
 		}
 

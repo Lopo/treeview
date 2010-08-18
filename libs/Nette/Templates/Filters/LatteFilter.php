@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Templates
  */
+
+namespace Nette\Templates;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -18,15 +23,15 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Templates
  */
-class LatteFilter extends Object
+class LatteFilter extends Nette\Object
 {
-	/** @ignore internal single & double quoted PHP string */
+	/** @internal single & double quoted PHP string */
 	const RE_STRING = '\'(?:\\\\.|[^\'\\\\])*\'|"(?:\\\\.|[^"\\\\])*"';
 
-	/** @ignore internal PHP identifier */
+	/** @internal PHP identifier */
 	const RE_IDENTIFIER = '[_a-zA-Z\x7F-\xFF][_a-zA-Z0-9\x7F-\xFF]*';
 
-	/** @ignore internal special HTML tag or attribute prefix */
+	/** @internal special HTML tag or attribute prefix */
 	const HTML_PREFIX = 'n:';
 
 	/** @var ILatteHandler */
@@ -50,7 +55,7 @@ class LatteFilter extends Object
 	/** @var string */
 	public $context, $escape;
 
-	/**#@+ @ignore internal Context-aware escaping states */
+	/**#@+ @internal Context-aware escaping states */
 	const CONTEXT_TEXT = 'text';
 	const CONTEXT_CDATA = 'cdata';
 	const CONTEXT_TAG = 'tag';
@@ -136,11 +141,10 @@ class LatteFilter extends Object
 				break;
 
 			} elseif (!empty($matches['macro'])) { // {macro|modifiers}
-				preg_match('#^(/?[a-z]+)?(.*?)(\\|[a-z](?:'.self::RE_STRING.'|[^\'"\s]+)*)?$()#is', $matches['macro'], $m2);
-				list(, $macro, $value, $modifiers) = $m2;
+				list(, $macro, $value, $modifiers) = String::match($matches['macro'], '#^(/?[a-z]+)?(.*?)(\\|[a-z](?:'.self::RE_STRING.'|[^\'"]+)*)?$()#is');
 				$code = $this->handler->macro($macro, trim($value), isset($modifiers) ? $modifiers : '');
 				if ($code === NULL) {
-					throw new InvalidStateException("Unknown macro {{$matches['macro']}} on line $this->line.");
+					throw new \InvalidStateException("Unknown macro {{$matches['macro']}} on line $this->line.");
 				}
 				$nl = isset($matches['newline']) ? "\n" : ''; // double newline
 				if ($nl && $matches['indent'] && strncmp($code, '<?php echo ', 11)) {
@@ -156,7 +160,7 @@ class LatteFilter extends Object
 
 		foreach ($this->tags as $tag) {
 			if (!$tag->isMacro && !empty($tag->attrs)) {
-				throw new InvalidStateException("Missing end tag </$tag->name> for macro-attribute " . self::HTML_PREFIX . implode(' and ' . self::HTML_PREFIX, array_keys($tag->attrs)) . ".");
+				throw new \InvalidStateException("Missing end tag </$tag->name> for macro-attribute " . self::HTML_PREFIX . implode(' and ' . self::HTML_PREFIX, array_keys($tag->attrs)) . ".");
 			}
 		}
 
@@ -180,7 +184,7 @@ class LatteFilter extends Object
 
 		} elseif (!empty($matches['comment'])) { // <!--
 			$this->context = self::CONTEXT_COMMENT;
-			$this->escape = 'TemplateHelpers::escapeHtmlComment';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtmlComment';
 
 		} elseif (empty($matches['closing'])) { // <tag
 			$tag = $this->tags[] = (object) NULL;
@@ -190,13 +194,13 @@ class LatteFilter extends Object
 			$tag->attrs = array();
 			$tag->pos = strlen($this->output);
 			$this->context = self::CONTEXT_TAG;
-			$this->escape = 'TemplateHelpers::escapeHtml';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 
 		} else { // </tag
 			do {
 				$tag = array_pop($this->tags);
 				if (!$tag) {
-					//throw new InvalidStateException("End tag for element '$matches[tag]' which is not open on line $this->line.");
+					//throw new \InvalidStateException("End tag for element '$matches[tag]' which is not open on line $this->line.");
 					$tag = (object) NULL;
 					$tag->name = $matches['tag'];
 					$tag->isMacro = String::startsWith($tag->name, self::HTML_PREFIX);
@@ -206,7 +210,7 @@ class LatteFilter extends Object
 			$tag->closing = TRUE;
 			$tag->pos = strlen($this->output);
 			$this->context = self::CONTEXT_TAG;
-			$this->escape = 'TemplateHelpers::escapeHtml';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 		}
 		return $matches;
 	}
@@ -228,7 +232,7 @@ class LatteFilter extends Object
 			$tag->closing = TRUE;
 			$tag->pos = strlen($this->output);
 			$this->context = self::CONTEXT_TAG;
-			$this->escape = 'TemplateHelpers::escapeHtml';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 		}
 		return $matches;
 	}
@@ -241,7 +245,7 @@ class LatteFilter extends Object
 	private function contextTag()
 	{
 		$matches = $this->match('~
-			(?P<end>/?>)(?P<tagnewline>[\ \t]*(?=\r|\n))?|  ##  end of HTML tag
+			(?P<end>\ ?/?>)(?P<tagnewline>[\ \t]*(?=\r|\n))?|  ##  end of HTML tag
 			'.$this->macroRe.'|          ##  curly tag
 			\s*(?P<attr>[^\s/>={]+)(?:\s*=\s*(?P<value>["\']|[^\s/>{]+))? ## begin of HTML attribute
 		~xsi');
@@ -250,13 +254,17 @@ class LatteFilter extends Object
 
 		} elseif (!empty($matches['end'])) { // end of HTML tag />
 			$tag = end($this->tags);
-			$isEmpty = !$tag->closing && ($matches['end'][0] === '/' || isset(Html::$emptyElements[strtolower($tag->name)]));
+			$isEmpty = !$tag->closing && (strpos($matches['end'], '/') !== FALSE || isset(Nette\Web\Html::$emptyElements[strtolower($tag->name)]));
+
+			if ($isEmpty) {
+				$matches[0] = (Nette\Web\Html::$xhtml ? ' />' : '>') . (isset($matches['tagnewline']) ? $matches['tagnewline'] : '');
+			}
 
 			if ($tag->isMacro || !empty($tag->attrs)) {
 				if ($tag->isMacro) {
 					$code = $this->handler->tagMacro(substr($tag->name, strlen(self::HTML_PREFIX)), $tag->attrs, $tag->closing);
 					if ($code === NULL) {
-						throw new InvalidStateException("Unknown tag-macro <$tag->name> on line $this->line.");
+						throw new \InvalidStateException("Unknown tag-macro <$tag->name> on line $this->line.");
 					}
 					if ($isEmpty) {
 						$code .= $this->handler->tagMacro(substr($tag->name, strlen(self::HTML_PREFIX)), $tag->attrs, TRUE);
@@ -265,7 +273,7 @@ class LatteFilter extends Object
 					$code = substr($this->output, $tag->pos) . $matches[0] . (isset($matches['tagnewline']) ? "\n" : '');
 					$code = $this->handler->attrsMacro($code, $tag->attrs, $tag->closing);
 					if ($code === NULL) {
-						throw new InvalidStateException("Unknown macro-attribute " . self::HTML_PREFIX . implode(' or ' . self::HTML_PREFIX, array_keys($tag->attrs)) . " on line $this->line.");
+						throw new \InvalidStateException("Unknown macro-attribute " . self::HTML_PREFIX . implode(' or ' . self::HTML_PREFIX, array_keys($tag->attrs)) . " on line $this->line.");
 					}
 					if ($isEmpty) {
 						$code = $this->handler->attrsMacro($code, $tag->attrs, TRUE);
@@ -281,10 +289,10 @@ class LatteFilter extends Object
 
 			if (!$tag->closing && (strcasecmp($tag->name, 'script') === 0 || strcasecmp($tag->name, 'style') === 0)) {
 				$this->context = self::CONTEXT_CDATA;
-				$this->escape = strcasecmp($tag->name, 'style') ? 'TemplateHelpers::escapeJs' : 'TemplateHelpers::escapeCss';
+				$this->escape = strcasecmp($tag->name, 'style') ? 'Nette\Templates\TemplateHelpers::escapeJs' : 'Nette\Templates\TemplateHelpers::escapeCss';
 			} else {
 				$this->context = self::CONTEXT_TEXT;
-				$this->escape = 'TemplateHelpers::escapeHtml';
+				$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 				if ($tag->closing) array_pop($this->tags);
 			}
 
@@ -310,8 +318,8 @@ class LatteFilter extends Object
 				$this->context = self::CONTEXT_ATTRIBUTE;
 				$this->quote = $value;
 				$this->escape = strncasecmp($name, 'on', 2)
-					? (strcasecmp($name, 'style') ? 'TemplateHelpers::escapeHtml' : 'TemplateHelpers::escapeHtmlCss')
-					: 'TemplateHelpers::escapeHtmlJs';
+					? (strcasecmp($name, 'style') ? 'Nette\Templates\TemplateHelpers::escapeHtml' : 'Nette\Templates\TemplateHelpers::escapeHtmlCss')
+					: 'Nette\Templates\TemplateHelpers::escapeHtmlJs';
 			}
 		}
 		return $matches;
@@ -331,7 +339,7 @@ class LatteFilter extends Object
 
 		if ($matches && empty($matches['macro'])) { // (attribute end) '"
 			$this->context = self::CONTEXT_TAG;
-			$this->escape = 'TemplateHelpers::escapeHtml';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 		}
 		return $matches;
 	}
@@ -350,7 +358,7 @@ class LatteFilter extends Object
 
 		if ($matches && empty($matches['macro'])) { // --\s*>
 			$this->context = self::CONTEXT_TEXT;
-			$this->escape = 'TemplateHelpers::escapeHtml';
+			$this->escape = 'Nette\Templates\TemplateHelpers::escapeHtml';
 		}
 		return $matches;
 	}
@@ -377,7 +385,7 @@ class LatteFilter extends Object
 	 */
 	private function match($re)
 	{
-		if (preg_match($re, $this->input, $matches, PREG_OFFSET_CAPTURE, $this->offset)) {
+		if ($matches = String::match($this->input, $re, PREG_OFFSET_CAPTURE, $this->offset)) {
 			$this->output .= substr($this->input, $this->offset, $matches[0][1] - $this->offset);
 			$this->offset = $matches[0][1] + strlen($matches[0][0]);
 			foreach ($matches as $k => $v) $matches[$k] = $v[0];
@@ -431,15 +439,16 @@ class LatteFilter extends Object
 	public static function formatModifiers($var, $modifiers)
 	{
 		if (!$modifiers) return $var;
-		preg_match_all(
+		$tokens = String::matchAll(
+			$modifiers . '|',
 			'~
 				'.self::RE_STRING.'|  ## single or double quoted string
-				[^\'"|:,]+|           ## symbol
+				[^\'"|:,\s]+|         ## symbol
 				[|:,]                 ## separator
 			~xs',
-			$modifiers . '|',
-			$tokens
+			PREG_PATTERN_ORDER
 		);
+
 		$inside = FALSE;
 		$prev = '';
 		foreach ($tokens[0] as $token) {
@@ -447,8 +456,8 @@ class LatteFilter extends Object
 				if ($prev === '') {
 
 				} elseif (!$inside) {
-					if (!preg_match('#^'.self::RE_IDENTIFIER.'$#', $prev)) {
-						throw new InvalidStateException("Modifier name must be alphanumeric string, '$prev' given.");
+					if (!String::match($prev, '#^'.self::RE_IDENTIFIER.'$#')) {
+						throw new \InvalidStateException("Modifier name must be alphanumeric string, '$prev' given.");
 					}
 					$var = "\$template->$prev($var";
 					$prev = '';
@@ -479,10 +488,11 @@ class LatteFilter extends Object
 	 */
 	public static function fetchToken(& $s)
 	{
-		if (preg_match('#^((?>'.self::RE_STRING.'|[^\'"\s,]+)+)\s*,?\s*(.*)$#', $s, $matches)) { // token [,] tail
+		if ($matches = String::match($s, '#^((?>'.self::RE_STRING.'|[^\'"\s,]+)+)\s*,?\s*(.*)$#')) { // token [,] tail
 			$s = $matches[2];
 			return $matches[1];
 		}
+
 		return NULL;
 	}
 
@@ -496,14 +506,15 @@ class LatteFilter extends Object
 	 */
 	public static function formatArray($s, $prefix = '')
 	{
-		$s = preg_replace_callback(
+		$s = String::replace(
+			trim($s),
 			'~
 				'.self::RE_STRING.'|                          ## single or double quoted string
 				(?<=[,=(]|=>|^)\s*([a-z\d_]+)(?=\s*[,=)]|$)   ## 1) symbol
 			~xi',
-			array(__CLASS__, 'cbArgs'),
-			trim($s)
+			callback(__CLASS__, 'cbArgs')
 		);
+		$s = String::replace($s, '#\$(' . self::RE_IDENTIFIER . ')\s*=>#', '"$1" =>');
 		return $s === '' ? '' : $prefix . "array($s)";
 	}
 
@@ -511,8 +522,9 @@ class LatteFilter extends Object
 
 	/**
 	 * Callback for formatArgs().
+	 * @internal
 	 */
-	private static function cbArgs($matches)
+	public static function cbArgs($matches)
 	{
 		//    [1] => symbol
 
@@ -535,19 +547,8 @@ class LatteFilter extends Object
 	 */
 	public static function formatString($s)
 	{
-		return (is_numeric($s) || strspn($s, '\'"$')) ? $s : '"' . $s . '"';
-	}
-
-
-
-	/**
-	 * Invokes filter.
-	 * @deprecated
-	 */
-	public static function invoke($s)
-	{
-		$filter = new self;
-		return $filter->__invoke($s);
+		static $keywords = array('true'=>1, 'false'=>1, 'null'=>1);
+		return (is_numeric($s) || strspn($s, '\'"$') || isset($keywords[strtolower($s)])) ? $s : '"' . $s . '"';
 	}
 
 }

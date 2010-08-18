@@ -17,10 +17,14 @@
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read string $name
+ * @property-read array $tables
+ * @property-read array $tableNames
  */
 class DibiDatabaseInfo extends DibiObject
 {
-	/** @var IDibiDriver */
+	/** @var IDibiReflector */
 	private $driver;
 
 	/** @var string */
@@ -31,7 +35,7 @@ class DibiDatabaseInfo extends DibiObject
 
 
 
-	public function __construct(IDibiDriver $driver, $name)
+	public function __construct(IDibiReflector $driver, $name)
 	{
 		$this->driver = $driver;
 		$this->name = $name;
@@ -81,6 +85,7 @@ class DibiDatabaseInfo extends DibiObject
 	 */
 	public function getTable($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->init();
 		$l = strtolower($name);
 		if (isset($this->tables[$l])) {
@@ -99,6 +104,7 @@ class DibiDatabaseInfo extends DibiObject
 	 */
 	public function hasTable($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->init();
 		return isset($this->tables[strtolower($name)]);
 	}
@@ -128,10 +134,18 @@ class DibiDatabaseInfo extends DibiObject
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read string $name
+ * @property-read bool $view
+ * @property-read array $columns
+ * @property-read array $columnNames
+ * @property-read array $foreignKeys
+ * @property-read array $indexes
+ * @property-read DibiIndexInfo $primaryKey
  */
 class DibiTableInfo extends DibiObject
 {
-	/** @var IDibiDriver */
+	/** @var IDibiReflector */
 	private $driver;
 
 	/** @var string */
@@ -154,7 +168,7 @@ class DibiTableInfo extends DibiObject
 
 
 
-	public function __construct(IDibiDriver $driver, array $info)
+	public function __construct(IDibiReflector $driver, array $info)
 	{
 		$this->driver = $driver;
 		$this->name = $info['name'];
@@ -215,6 +229,7 @@ class DibiTableInfo extends DibiObject
 	 */
 	public function getColumn($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		$l = strtolower($name);
 		if (isset($this->columns[$l])) {
@@ -233,6 +248,7 @@ class DibiTableInfo extends DibiObject
 	 */
 	public function hasColumn($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		return isset($this->columns[strtolower($name)]);
 	}
@@ -327,10 +343,13 @@ class DibiTableInfo extends DibiObject
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read array $columns
+ * @property-read array $columnNames
  */
 class DibiResultInfo extends DibiObject
 {
-	/** @var IDibiDriver */
+	/** @var IDibiReflector */
 	private $driver;
 
 	/** @var array */
@@ -341,7 +360,7 @@ class DibiResultInfo extends DibiObject
 
 
 
-	public function __construct(IDibiDriver $driver)
+	public function __construct(IDibiReflector $driver)
 	{
 		$this->driver = $driver;
 	}
@@ -381,6 +400,7 @@ class DibiResultInfo extends DibiObject
 	 */
 	public function getColumn($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		$l = strtolower($name);
 		if (isset($this->names[$l])) {
@@ -399,6 +419,7 @@ class DibiResultInfo extends DibiObject
 	 */
 	public function hasColumn($name)
 	{
+		$name = DibiTranslator::substitute($name);
 		$this->initColumns();
 		return isset($this->names[strtolower($name)]);
 	}
@@ -428,13 +449,24 @@ class DibiResultInfo extends DibiObject
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read string $name
+ * @property-read string $fullName
+ * @property-read DibiTableInfo $table
+ * @property-read string $type
+ * @property-read mixed $nativeType
+ * @property-read int $size
+ * @property-read bool $unsigned
+ * @property-read bool $nullable
+ * @property-read bool $autoIncrement
+ * @property-read mixed $default
  */
 class DibiColumnInfo extends DibiObject
 {
 	/** @var array */
 	private static $types;
 
-	/** @var IDibiDriver */
+	/** @var IDibiReflector */
 	private $driver;
 
 	/** @var array (name, nativetype, [table], [fullname], [size], [nullable], [default], [autoincrement], [vendor]) */
@@ -445,7 +477,7 @@ class DibiColumnInfo extends DibiObject
 
 
 
-	public function __construct(IDibiDriver $driver, array $info)
+	public function __construct(IDibiReflector $driver, array $info)
 	{
 		$this->driver = $driver;
 		$this->info = $info;
@@ -532,6 +564,16 @@ class DibiColumnInfo extends DibiObject
 	/**
 	 * @return bool
 	 */
+	public function isUnsigned()
+	{
+		return isset($this->info['unsigned']) ? (bool) $this->info['unsigned'] : NULL;
+	}
+
+
+
+	/**
+	 * @return bool
+	 */
 	public function isNullable()
 	{
 		return isset($this->info['nullable']) ? (bool) $this->info['nullable'] : NULL;
@@ -610,6 +652,9 @@ class DibiColumnInfo extends DibiObject
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
  * @todo
+ *
+ * @property-read string $name
+ * @property-read array $references
  */
 class DibiForeignKeyInfo extends DibiObject
 {
@@ -657,6 +702,11 @@ class DibiForeignKeyInfo extends DibiObject
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read string $name
+ * @property-read array $columns
+ * @property-read bool $unique
+ * @property-read bool $primary
  */
 class DibiIndexInfo extends DibiObject
 {

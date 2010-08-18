@@ -4,11 +4,18 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Templates
  */
+
+namespace Nette\Templates;
+
+use Nette,
+	Nette\Environment,
+	Nette\Caching\Cache,
+	Nette\Loaders\LimitedScope;
 
 
 
@@ -23,7 +30,7 @@ class Template extends BaseTemplate implements IFileTemplate
 	/** @var int */
 	public static $cacheExpire = FALSE;
 
-	/** @var ICacheStorage */
+	/** @var Nette\Caching\ICacheStorage */
 	private static $cacheStorage;
 
 	/** @var string */
@@ -52,7 +59,7 @@ class Template extends BaseTemplate implements IFileTemplate
 	public function setFile($file)
 	{
 		if (!is_file($file)) {
-			throw new FileNotFoundException("Missing template file '$file'.");
+			throw new \FileNotFoundException("Missing template file '$file'.");
 		}
 		$this->file = $file;
 		return $this;
@@ -82,13 +89,15 @@ class Template extends BaseTemplate implements IFileTemplate
 	public function render()
 	{
 		if ($this->file == NULL) { // intentionally ==
-			throw new InvalidStateException("Template file name was not specified.");
+			throw new \InvalidStateException("Template file name was not specified.");
 		}
 
 		$this->__set('template', $this);
 
+		$shortName = str_replace(Environment::getVariable('appDir'), '', $this->file);
+
 		$cache = new Cache($this->getCacheStorage(), 'Nette.Template');
-		$key = md5($this->file) . '.' . basename($this->file);
+		$key = trim(strtr($shortName, '\\/@', '.._'), '.') . '-' . md5($this->file);
 		$cached = $content = $cache[$key];
 
 		if ($content === NULL) {
@@ -101,13 +110,7 @@ class Template extends BaseTemplate implements IFileTemplate
 				return;
 			}
 
-			try {
-				$shortName = $this->file;
-				$shortName = str_replace(Environment::getVariable('appDir'), "\xE2\x80\xA6", $shortName);
-			} catch (Exception $foo) {
-			}
-
-			$content = $this->compile(file_get_contents($this->file), "file $shortName");
+			$content = $this->compile(file_get_contents($this->file), "file \xE2\x80\xA6$shortName");
 			$cache->save(
 				$key,
 				$content,
@@ -116,6 +119,7 @@ class Template extends BaseTemplate implements IFileTemplate
 					Cache::EXPIRE => self::$cacheExpire,
 				)
 			);
+			$cache->release();
 			$cached = $cache[$key];
 		}
 
@@ -136,10 +140,10 @@ class Template extends BaseTemplate implements IFileTemplate
 
 	/**
 	 * Set cache storage.
-	 * @param  Cache
+	 * @param  Nette\Caching\Cache
 	 * @return void
 	 */
-	public static function setCacheStorage(ICacheStorage $storage)
+	public static function setCacheStorage(Nette\Caching\ICacheStorage $storage)
 	{
 		self::$cacheStorage = $storage;
 	}
@@ -147,7 +151,7 @@ class Template extends BaseTemplate implements IFileTemplate
 
 
 	/**
-	 * @return ICacheStorage
+	 * @return Nette\Caching\ICacheStorage
 	 */
 	public static function getCacheStorage()
 	{

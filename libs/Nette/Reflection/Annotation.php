@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class Annotation extends Object implements IAnnotation
+class Annotation extends Nette\Object implements IAnnotation
 {
 
 	public function __construct(array $values)

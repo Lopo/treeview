@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Loaders
  */
+
+namespace Nette\Loaders;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -36,16 +41,19 @@ class RobotLoader extends AutoLoader
 	private $list = array();
 
 	/** @var array */
-	private $timestamps;
+	private $files;
 
 	/** @var bool */
-	private $rebuilded = FALSE;
+	private $rebuilt = FALSE;
 
 	/** @var string */
 	private $acceptMask;
 
 	/** @var string */
 	private $ignoreMask;
+
+	/** @var array */
+	private $disallow = array();
 
 
 
@@ -54,7 +62,7 @@ class RobotLoader extends AutoLoader
 	public function __construct()
 	{
 		if (!extension_loaded('tokenizer')) {
-			throw new Exception("PHP extension Tokenizer is not loaded.");
+			throw new \Exception("PHP extension Tokenizer is not loaded.");
 		}
 	}
 
@@ -74,7 +82,7 @@ class RobotLoader extends AutoLoader
 			$this->rebuild();
 		}
 
-		if (isset($this->list[strtolower(__CLASS__)]) && class_exists('NetteLoader', FALSE)) {
+		if (isset($this->list[strtolower(__CLASS__)]) && class_exists('Nette\Loaders\NetteLoader', FALSE)) {
 			NetteLoader::getInstance()->unregister();
 		}
 
@@ -90,11 +98,10 @@ class RobotLoader extends AutoLoader
 	 */
 	public function tryLoad($type)
 	{
-		$type = strtolower($type);
-		
+		$type = ltrim(strtolower($type), '\\'); // PHP namespace bug #49143
 		if (isset($this->list[$type])) {
 			if ($this->list[$type] !== FALSE) {
-				LimitedScope::load($this->list[$type]);
+				LimitedScope::load($this->list[$type][0]);
 				self::$count++;
 			}
 
@@ -106,11 +113,15 @@ class RobotLoader extends AutoLoader
 			}
 
 			if ($this->autoRebuild) {
-				$this->rebuild(FALSE);
+				if ($this->rebuilt) {
+					$this->getCache()->save($this->getKey(), $this->list);
+				} else {
+					$this->rebuild();
+				}
 			}
 
 			if ($this->list[$type] !== FALSE) {
-				LimitedScope::load($this->list[$type]);
+				LimitedScope::load($this->list[$type][0]);
 				self::$count++;
 			}
 		}
@@ -120,27 +131,45 @@ class RobotLoader extends AutoLoader
 
 	/**
 	 * Rebuilds class list cache.
-	 * @param  bool
 	 * @return void
 	 */
-	public function rebuild($force = TRUE)
+	public function rebuild()
 	{
-		$cache = $this->getCache();
-		$key = $this->getKey();
+		$this->getCache()->save($this->getKey(), callback($this, '_rebuildCallback'));
+		$this->rebuilt = TRUE;
+	}
+
+
+
+	/**
+	 * @internal
+	 */
+	public function _rebuildCallback()
+	{
 		$this->acceptMask = self::wildcards2re($this->acceptFiles);
 		$this->ignoreMask = self::wildcards2re($this->ignoreDirs);
-		$this->timestamps = $cache[$key . 'ts'];
-
-		if ($force || !$this->rebuilded) {
-			foreach (array_unique($this->scanDirs) as $dir) {
-				$this->scanDirectory($dir);
-			}
+		foreach ($this->list as $pair) {
+			if ($pair) $this->files[$pair[0]] = $pair[1];
 		}
+		foreach (array_unique($this->scanDirs) as $dir) {
+			$this->scanDirectory($dir);
+		}
+		$this->files = NULL;
+		return $this->list;
+	}
 
-		$this->rebuilded = TRUE;
-		$cache[$key] = $this->list;
-		$cache[$key . 'ts'] = $this->timestamps;
-		$this->timestamps = NULL;
+
+
+	/**
+	 * @return array of class => filename
+	 */
+	public function getIndexedClasses()
+	{
+		$res = array();
+		foreach ($this->list as $class => $pair) {
+			if ($pair) $res[$class] = $pair[0];
+		}
+		return $res;
 	}
 
 
@@ -149,14 +178,14 @@ class RobotLoader extends AutoLoader
 	 * Add directory (or directories) to list.
 	 * @param  string|array
 	 * @return void
-	 * @throws DirectoryNotFoundException if path is not found
+	 * @throws \DirectoryNotFoundException if path is not found
 	 */
 	public function addDirectory($path)
 	{
 		foreach ((array) $path as $val) {
 			$real = realpath($val);
 			if ($real === FALSE) {
-				throw new DirectoryNotFoundException("Directory '$val' not found.");
+				throw new \DirectoryNotFoundException("Directory '$val' not found.");
 			}
 			$this->scanDirs[] = $real;
 		}
@@ -168,16 +197,17 @@ class RobotLoader extends AutoLoader
 	 * Add class and file name to the list.
 	 * @param  string
 	 * @param  string
+	 * @param  int
 	 * @return void
 	 */
-	public function addClass($class, $file)
+	private function addClass($class, $file, $time)
 	{
 		$class = strtolower($class);
-		if (!empty($this->list[$class]) && $this->list[$class] !== $file) {
+		if (!empty($this->list[$class]) && $this->list[$class][0] !== $file) {
 			spl_autoload_call($class); // hack: enables exceptions
-			throw new InvalidStateException("Ambiguous class '$class' resolution; defined in $file and in " . $this->list[$class] . ".");
+			throw new \InvalidStateException("Ambiguous class '$class' resolution; defined in $file and in " . $this->list[$class][0] . ".");
 		}
-		$this->list[$class] = $file;
+		$this->list[$class] = array($file, $time);
 	}
 
 
@@ -189,37 +219,40 @@ class RobotLoader extends AutoLoader
 	 */
 	private function scanDirectory($dir)
 	{
+		if (is_file($dir)) {
+			if (!isset($this->files[$dir]) || $this->files[$dir] !== filemtime($dir)) {
+				$this->scanScript($dir);
+			}
+			return;
+		}
+
 		$iterator = dir($dir);
 		if (!$iterator) return;
 
-		$disallow = array();
+		$base = $dir . DIRECTORY_SEPARATOR;
 		if (is_file($dir . '/netterobots.txt')) {
 			foreach (file($dir . '/netterobots.txt') as $s) {
-				if (preg_match('#^disallow\\s*:\\s*(\\S+)#i', $s, $m)) {
-					$disallow[trim($m[1], '/')] = TRUE;
+				if ($matches = String::match($s, '#^disallow\\s*:\\s*(\\S+)#i')) {
+					$this->disallow[$base . str_replace('/', DIRECTORY_SEPARATOR, trim($matches[1], '/'))] = TRUE;
 				}
 			}
-			if (isset($disallow[''])) return;
+			if (isset($this->disallow[$base])) return;
 		}
 
 		while (FALSE !== ($entry = $iterator->read())) {
-			if ($entry == '.' || $entry == '..' || isset($disallow[$entry])) continue;
-
-			$path = $dir . DIRECTORY_SEPARATOR . $entry;
+			if ($entry == '.' || $entry == '..' || isset($this->disallow[$path = $base . $entry])) continue;
 
 			// process subdirectories
 			if (is_dir($path)) {
 				// check ignore mask
-				if (!preg_match($this->ignoreMask, $entry)) {
+				if (!String::match($entry, $this->ignoreMask)) {
 					$this->scanDirectory($path);
 				}
 				continue;
 			}
 
-			if (is_file($path) && preg_match($this->acceptMask, $entry)) {
-				$time = filemtime($path);
-				if (!isset($this->timestamps[$path]) || $this->timestamps[$path] !== $time) {
-					$this->timestamps[$path] = $time;
+			if (is_file($path) && String::match($entry, $this->acceptMask)) {
+				if (!isset($this->files[$path]) || $this->files[$path] !== filemtime($path)) {
 					$this->scanScript($path);
 				}
 			}
@@ -237,19 +270,18 @@ class RobotLoader extends AutoLoader
 	 */
 	private function scanScript($file)
 	{
-		if (!defined('T_NAMESPACE')) {
-			define('T_NAMESPACE', -1);
-			define('T_NS_SEPARATOR', -1);
-		}
+		$T_NAMESPACE = PHP_VERSION_ID < 50300 ? -1 : T_NAMESPACE;
+		$T_NS_SEPARATOR = PHP_VERSION_ID < 50300 ? -1 : T_NS_SEPARATOR;
 
 		$expected = FALSE;
 		$namespace = '';
 		$level = 0;
+		$time = filemtime($file);
 		$s = file_get_contents($file);
 
-		if (preg_match('#//nette'.'loader=(\S*)#', $s, $matches)) {
+		if ($matches = String::match($s, '#//nette'.'loader=(\S*)#')) {
 			foreach (explode(',', $matches[1]) as $name) {
-				$this->addClass($name, $file);
+				$this->addClass($name, $file, $time);
 			}
 			return;
 		}
@@ -263,14 +295,14 @@ class RobotLoader extends AutoLoader
 				case T_WHITESPACE:
 					continue 2;
 
-				case T_NS_SEPARATOR:
+				case $T_NS_SEPARATOR:
 				case T_STRING:
 					if ($expected) {
 						$name .= $token[1];
 					}
 					continue 2;
 
-				case T_NAMESPACE:
+				case $T_NAMESPACE:
 				case T_CLASS:
 				case T_INTERFACE:
 					$expected = $token[0];
@@ -287,11 +319,11 @@ class RobotLoader extends AutoLoader
 				case T_CLASS:
 				case T_INTERFACE:
 					if ($level === 0) {
-						$this->addClass($namespace . $name, $file);
+						$this->addClass($namespace . $name, $file, $time);
 					}
 					break;
 
-				case T_NAMESPACE:
+				case $T_NAMESPACE:
 					$namespace = $name . '\\';
 				}
 
@@ -332,11 +364,11 @@ class RobotLoader extends AutoLoader
 
 
 	/**
-	 * @return Cache
+	 * @return Nette\Caching\Cache
 	 */
 	protected function getCache()
 	{
-		return Environment::getCache('Nette.RobotLoader');
+		return Nette\Environment::getCache('Nette.RobotLoader');
 	}
 
 
@@ -346,7 +378,7 @@ class RobotLoader extends AutoLoader
 	 */
 	protected function getKey()
 	{
-		return md5("$this->ignoreDirs|$this->acceptFiles|" . implode('|', $this->scanDirs));
+		return md5("v2|$this->ignoreDirs|$this->acceptFiles|" . implode('|', $this->scanDirs));
 	}
 
 
@@ -356,7 +388,7 @@ class RobotLoader extends AutoLoader
 	 */
 	protected function isProduction()
 	{
-		return Environment::isProduction();
+		return Nette\Environment::isProduction();
 	}
 
 }

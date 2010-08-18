@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
  */
-class RedirectingResponse extends Object implements IPresenterResponse
+class RedirectingResponse extends Nette\Object implements IPresenterResponse
 {
 	/** @var string */
 	private $uri;
@@ -32,7 +36,7 @@ class RedirectingResponse extends Object implements IPresenterResponse
 	 * @param  string  URI
 	 * @param  int     HTTP code 3xx
 	 */
-	public function __construct($uri, $code = IHttpResponse::S302_FOUND)
+	public function __construct($uri, $code = Nette\Web\IHttpResponse::S302_FOUND)
 	{
 		$this->uri = (string) $uri;
 		$this->code = (int) $code;
@@ -66,7 +70,7 @@ class RedirectingResponse extends Object implements IPresenterResponse
 	 */
 	public function send()
 	{
-		Environment::getHttpResponse()->redirect($this->uri, $this->code);
+		Nette\Environment::getHttpResponse()->redirect($this->uri, $this->code);
 	}
 
 }

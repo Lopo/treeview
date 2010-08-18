@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette,
+	Nette\Web\Html;
 
 
 
@@ -18,7 +23,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Forms
  */
-class ConventionalRenderer extends Object implements IFormRenderer
+class ConventionalRenderer extends Nette\Object implements IFormRenderer
 {
 	/**
 	 *  /--- form.container
@@ -116,9 +121,6 @@ class ConventionalRenderer extends Object implements IFormRenderer
 	/** @var Form */
 	protected $form;
 
-	/** @var object */
-	protected $clientScript = TRUE; // means autodetect
-
 	/** @var int */
 	protected $counter;
 
@@ -155,29 +157,11 @@ class ConventionalRenderer extends Object implements IFormRenderer
 
 
 
-	/**
-	 * Sets JavaScript handler.
-	 * @param  object
-	 * @return ConventionalRenderer  provides a fluent interface
-	 */
-	public function setClientScript($clientScript = NULL)
+	/** @deprecated */
+	public function setClientScript()
 	{
-		$this->clientScript = $clientScript;
+		trigger_error(__METHOD__ . '() is deprecated; use unobstructive JavaScript instead.', E_USER_WARNING);
 		return $this;
-	}
-
-
-
-	/**
-	 * Returns JavaScript handler.
-	 * @return mixed
-	 */
-	public function getClientScript()
-	{
-		if ($this->clientScript === TRUE) {
-			$this->clientScript = new InstantClientScript($this->form);
-		}
-		return $this->clientScript;
 	}
 
 
@@ -188,11 +172,6 @@ class ConventionalRenderer extends Object implements IFormRenderer
 	 */
 	protected function init()
 	{
-		$clientScript = $this->getClientScript();
-		if ($clientScript !== NULL) {
-			$clientScript->enable();
-		}
-
 		// TODO: only for back compatiblity - remove?
 		$wrapper = & $this->wrappers['control'];
 		foreach ($this->form->getControls() as $control) {
@@ -262,14 +241,7 @@ class ConventionalRenderer extends Object implements IFormRenderer
 			$s = $this->getWrapper('hidden container')->setHtml($s) . "\n";
 		}
 
-		$s .= $this->form->getElementPrototype()->endTag() . "\n";
-
-		$clientScript = $this->getClientScript();
-		if ($clientScript !== NULL) {
-			$s .= $clientScript->renderClientScript() . "\n";
-		}
-
-		return $s;
+		return $s . $this->form->getElementPrototype()->endTag() . "\n";
 	}
 
 
@@ -368,7 +340,7 @@ class ConventionalRenderer extends Object implements IFormRenderer
 	public function renderControls($parent)
 	{
 		if (!($parent instanceof FormContainer || $parent instanceof FormGroup)) {
-			throw new InvalidArgumentException("Argument must be FormContainer or FormGroup instance.");
+			throw new \InvalidArgumentException("Argument must be FormContainer or FormGroup instance.");
 		}
 
 		$container = $this->getWrapper('controls container');
@@ -433,7 +405,7 @@ class ConventionalRenderer extends Object implements IFormRenderer
 		$s = array();
 		foreach ($controls as $control) {
 			if (!($control instanceof IFormControl)) {
-				throw new InvalidArgumentException("Argument must be array of IFormControl instances.");
+				throw new \InvalidArgumentException("Argument must be array of IFormControl instances.");
 			}
 			$s[] = (string) $control->getControl();
 		}
@@ -485,7 +457,7 @@ class ConventionalRenderer extends Object implements IFormRenderer
 			$description = ' ' . $control->getOption('description');
 
 		} elseif (is_string($description)) {
-			$description = ' ' . $this->getWrapper('control description')->setText($description);
+			$description = ' ' . $this->getWrapper('control description')->setText($control->translate($description));
 
 		} else {
 			$description = '';
@@ -511,7 +483,7 @@ class ConventionalRenderer extends Object implements IFormRenderer
 
 	/**
 	 * @param  string
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	protected function getWrapper($name)
 	{

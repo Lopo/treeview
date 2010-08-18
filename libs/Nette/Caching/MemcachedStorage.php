@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Caching
  */
+
+namespace Nette\Caching;
+
+use Nette;
 
 
 
@@ -18,9 +22,9 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Caching
  */
-class MemcachedStorage extends Object implements ICacheStorage
+class MemcachedStorage extends Nette\Object implements ICacheStorage
 {
-	/**#@+ @ignore internal cache structure */
+	/**#@+ @internal cache structure */
 	const META_CALLBACKS = 'callbacks';
 	const META_DATA = 'data';
 	const META_DELTA = 'delta';
@@ -31,6 +35,9 @@ class MemcachedStorage extends Object implements ICacheStorage
 
 	/** @var string */
 	private $prefix;
+
+	/** @var ICacheJournal */
+	private $journal;
 
 
 
@@ -48,11 +55,11 @@ class MemcachedStorage extends Object implements ICacheStorage
 	public function __construct($host = 'localhost', $port = 11211, $prefix = '')
 	{
 		if (!self::isAvailable()) {
-			throw new Exception("PHP extension 'memcache' is not loaded.");
+			throw new \NotSupportedException("PHP extension 'memcache' is not loaded.");
 		}
 
 		$this->prefix = $prefix;
-		$this->memcache = new Memcache;
+		$this->memcache = new \Memcache;
 		$this->memcache->connect($host, $port);
 	}
 
@@ -78,7 +85,7 @@ class MemcachedStorage extends Object implements ICacheStorage
 
 		// verify dependencies
 		if (!empty($meta[self::META_CALLBACKS]) && !Cache::checkCallbacks($meta[self::META_CALLBACKS])) {
-			$this->memcache->delete($key);
+			$this->memcache->delete($key, 0);
 			return NULL;
 		}
 
@@ -100,8 +107,8 @@ class MemcachedStorage extends Object implements ICacheStorage
 	 */
 	public function write($key, $data, array $dp)
 	{
-		if (!empty($dp[Cache::TAGS]) || isset($dp[Cache::PRIORITY]) || !empty($dp[Cache::ITEMS])) {
-			throw new NotSupportedException('Tags, priority and dependent items are not supported by MemcachedStorage.');
+		if (!empty($dp[Cache::ITEMS])) {
+			throw new \NotSupportedException('Dependent items are not supported by MemcachedStorage.');
 		}
 
 		$meta = array(
@@ -120,6 +127,10 @@ class MemcachedStorage extends Object implements ICacheStorage
 			$meta[self::META_CALLBACKS] = $dp[Cache::CALLBACKS];
 		}
 
+		if (!empty($dp[Cache::TAGS]) || isset($dp[Cache::PRIORITY])) {
+			$this->getJournal()->write($this->prefix . $key, $dp);
+		}
+
 		$this->memcache->set($this->prefix . $key, $meta, 0, $expire);
 	}
 
@@ -132,7 +143,7 @@ class MemcachedStorage extends Object implements ICacheStorage
 	 */
 	public function remove($key)
 	{
-		$this->memcache->delete($this->prefix . $key);
+		$this->memcache->delete($this->prefix . $key, 0);
 	}
 
 
@@ -147,9 +158,25 @@ class MemcachedStorage extends Object implements ICacheStorage
 		if (!empty($conds[Cache::ALL])) {
 			$this->memcache->flush();
 
-		} elseif (isset($conds[Cache::TAGS]) || isset($conds[Cache::PRIORITY])) {
-			throw new NotSupportedException('Tags and priority is not supported by MemcachedStorage.');
+		} else {
+			foreach ($this->getJournal()->clean($conds) as $entry) {
+				$this->memcache->delete($entry, 0);
+			}
 		}
+	}
+
+
+
+	/**
+	 * Returns the ICacheJournal
+	 * @return ICacheJournal
+	 */
+	protected function getJournal()
+	{
+		if ($this->journal === NULL) {
+			$this->journal = Nette\Environment::getService('Nette\\Caching\\ICacheJournal');
+		}
+		return $this->journal;
 	}
 
 }

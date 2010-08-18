@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -21,9 +25,9 @@
  * @property-read array $controls
  * @property-read array $options
  */
-class FormGroup extends Object
+class FormGroup extends Nette\Object
 {
-	/** @var SplObjectStorage */
+	/** @var \SplObjectStorage */
 	protected $controls;
 
 	/** @var array user options */
@@ -33,7 +37,7 @@ class FormGroup extends Object
 
 	public function __construct()
 	{
-		$this->controls = new SplObjectStorage;
+		$this->controls = new \SplObjectStorage;
 	}
 
 
@@ -47,13 +51,13 @@ class FormGroup extends Object
 			if ($item instanceof IFormControl) {
 				$this->controls->attach($item);
 
-			} elseif ($item instanceof Traversable || is_array($item)) {
+			} elseif ($item instanceof \Traversable || is_array($item)) {
 				foreach ($item as $control) {
 					$this->controls->attach($control);
 				}
 
 			} else {
-				throw new InvalidArgumentException("Only IFormControl items are allowed, the #$num parameter is invalid.");
+				throw new \InvalidArgumentException("Only IFormControl items are allowed, the #$num parameter is invalid.");
 			}
 		}
 		return $this;
@@ -73,7 +77,6 @@ class FormGroup extends Object
 
 	/**
 	 * Sets user-specific option.
-	 *
 	 * Options recognized by ConventionalRenderer
 	 * - 'label' - textual or Html object label
 	 * - 'visual' - indicates visual group

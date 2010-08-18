@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Caching
  */
+
+namespace Nette\Caching;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Caching
  */
-class Cache extends Object implements ArrayAccess
+class Cache extends Nette\Object implements \ArrayAccess
 {
 	/**#@+ dependency */
 	const PRIORITY = 'priority';
@@ -32,10 +36,7 @@ class Cache extends Object implements ArrayAccess
 	const ALL = 'all';
 	/**#@-*/
 
-	/** @deprecated */
-	const REFRESH = 'sliding';
-
-	/** @ignore internal */
+	/** @internal */
 	const NAMESPACE_SEPARATOR = "\x00";
 
 	/** @var ICacheStorage */
@@ -58,7 +59,7 @@ class Cache extends Object implements ArrayAccess
 		$this->namespace = (string) $namespace;
 
 		if (strpos($this->namespace, self::NAMESPACE_SEPARATOR) !== FALSE) {
-			throw new InvalidArgumentException("Namespace name contains forbidden character.");
+			throw new \InvalidArgumentException("Namespace name contains forbidden character.");
 		}
 	}
 
@@ -111,25 +112,27 @@ class Cache extends Object implements ArrayAccess
 	 * @param  string key
 	 * @param  mixed  value
 	 * @param  array  dependencies
-	 * @return void
-	 * @throws InvalidArgumentException
+	 * @return mixed  value itself
+	 * @throws \InvalidArgumentException
 	 */
 	public function save($key, $data, array $dp = NULL)
 	{
 		if (!is_string($key) && !is_int($key)) {
-			throw new InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
+			throw new \InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
 		}
+		$this->key = (string) $key;
+		$key = $this->namespace . self::NAMESPACE_SEPARATOR . $key;
 
 		// convert expire into relative amount of seconds
 		if (!empty($dp[Cache::EXPIRE])) {
-			$dp[Cache::EXPIRE] = Tools::createDateTime($dp[Cache::EXPIRE])->format('U') - time();
+			$dp[Cache::EXPIRE] = Nette\Tools::createDateTime($dp[Cache::EXPIRE])->format('U') - time();
 		}
 
 		// convert FILES into CALLBACKS
 		if (isset($dp[self::FILES])) {
 			//clearstatcache();
 			foreach ((array) $dp[self::FILES] as $item) {
-				$dp[self::CALLBACKS][] = array(array(__CLASS__, 'checkFile'), $item, @filemtime($item)); // intentionally @
+				$dp[self::CALLBACKS][] = array(array(__CLASS__, 'checkFile'), $item, @filemtime($item)); // @ - stat may fail
 			}
 			unset($dp[self::FILES]);
 		}
@@ -150,17 +153,24 @@ class Cache extends Object implements ArrayAccess
 			unset($dp[self::CONSTS]);
 		}
 
-		if (is_object($data)) {
-			$dp[self::CALLBACKS][] = array(array(__CLASS__, 'checkSerializationVersion'), get_class($data),
-				ClassReflection::from($data)->getAnnotation('serializationVersion'));
+		if ($data instanceof Nette\Callback || $data instanceof \Closure) {
+			Nette\Environment::enterCriticalSection('Nette\Caching/' . $key);
+			$data = $data->__invoke();
+			Nette\Environment::leaveCriticalSection('Nette\Caching/' . $key);
 		}
 
-		$this->key = NULL;
-		$this->storage->write(
-			$this->namespace . self::NAMESPACE_SEPARATOR . $key,
-			$data,
-			(array) $dp
-		);
+		if (is_object($data)) {
+			$dp[self::CALLBACKS][] = array(array(__CLASS__, 'checkSerializationVersion'), get_class($data),
+				Nette\Reflection\ClassReflection::from($data)->getAnnotation('serializationVersion'));
+		}
+
+		$this->data = $data;
+		if ($data === NULL) {
+			$this->storage->remove($key);
+		} else {
+			$this->storage->write($key, $data, (array) $dp);
+		}
+		return $data;
 	}
 
 
@@ -177,6 +187,7 @@ class Cache extends Object implements ArrayAccess
 	 */
 	public function clean(array $conds = NULL)
 	{
+		$this->release();
 		$this->storage->clean((array) $conds);
 	}
 
@@ -191,20 +202,11 @@ class Cache extends Object implements ArrayAccess
 	 * @param  string key
 	 * @param  mixed
 	 * @return void
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	public function offsetSet($key, $data)
 	{
-		if (!is_string($key) && !is_int($key)) { // prevents NULL
-			throw new InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
-		}
-
-		$this->key = $this->data = NULL;
-		if ($data === NULL) {
-			$this->storage->remove($this->namespace . self::NAMESPACE_SEPARATOR . $key);
-		} else {
-			$this->storage->write($this->namespace . self::NAMESPACE_SEPARATOR . $key, $data, array());
-		}
+		$this->save($key, $data);
 	}
 
 
@@ -213,12 +215,12 @@ class Cache extends Object implements ArrayAccess
 	 * Retrieves the specified item from the cache or NULL if the key is not found (\ArrayAccess implementation).
 	 * @param  string key
 	 * @return mixed|NULL
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	public function offsetGet($key)
 	{
 		if (!is_string($key) && !is_int($key)) {
-			throw new InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
+			throw new \InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
 		}
 
 		$key = (string) $key;
@@ -236,17 +238,11 @@ class Cache extends Object implements ArrayAccess
 	 * Exists item in cache? (\ArrayAccess implementation).
 	 * @param  string key
 	 * @return bool
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	public function offsetExists($key)
 	{
-		if (!is_string($key) && !is_int($key)) {
-			throw new InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
-		}
-
-		$this->key = (string) $key;
-		$this->data = $this->storage->read($this->namespace . self::NAMESPACE_SEPARATOR . $key);
-		return $this->data !== NULL;
+		return $this->offsetGet($key) !== NULL;
 	}
 
 
@@ -255,16 +251,11 @@ class Cache extends Object implements ArrayAccess
 	 * Removes the specified item from the cache.
 	 * @param  string key
 	 * @return void
-	 * @throws InvalidArgumentException
+	 * @throws \InvalidArgumentException
 	 */
 	public function offsetUnset($key)
 	{
-		if (!is_string($key) && !is_int($key)) {
-			throw new InvalidArgumentException("Cache key name must be string or integer, " . gettype($key) ." given.");
-		}
-
-		$this->key = $this->data = NULL;
-		$this->storage->remove($this->namespace . self::NAMESPACE_SEPARATOR . $key);
+		$this->save($key, NULL);
 	}
 
 
@@ -312,7 +303,7 @@ class Cache extends Object implements ArrayAccess
 	 */
 	private static function checkFile($file, $time)
 	{
-		return @filemtime($file) == $time; // intentionally @
+		return @filemtime($file) == $time; // @ - stat may fail
 	}
 
 
@@ -325,7 +316,7 @@ class Cache extends Object implements ArrayAccess
 	 */
 	private static function checkSerializationVersion($class, $value)
 	{
-		return ClassReflection::from($class)->getAnnotation('serializationVersion') === $value;
+		return Nette\Reflection\ClassReflection::from($class)->getAnnotation('serializationVersion') === $value;
 	}
 
 }

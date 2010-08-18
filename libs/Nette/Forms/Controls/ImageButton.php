@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -36,7 +40,7 @@ class ImageButton extends SubmitButton
 
 
 	/**
-	 * Returns name of control within a Form & INamingContainer scope.
+	 * Returns HTML name of control.
 	 * @return string
 	 */
 	public function getHtmlName()
@@ -55,7 +59,7 @@ class ImageButton extends SubmitButton
 	{
 		$path = $this->getHtmlName(); // img_x or img['x']
 		$path = explode('[', strtr(str_replace(']', '', strpos($path, '[') === FALSE ? $path . '.x' : substr($path, 0, -2)), '.', '_'));
-		$this->setValue(ArrayTools::get($this->getForm()->getHttpData(), $path) !== NULL);
+		$this->setValue(Nette\ArrayTools::get($this->getForm()->getHttpData(), $path) !== NULL);
 	}
 
 }

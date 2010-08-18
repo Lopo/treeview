@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -49,8 +53,6 @@ class SelectBox extends FormControl
 		parent::__construct($label);
 		$this->control->setName('select');
 		$this->control->size = $size > 1 ? (int) $size : NULL;
-		$this->control->onfocus = 'this.onmousewheel=function(){return false}';  // prevents accidental change in IE
-		$this->label->onclick = 'return false';  // prevents deselect in IE 5 - 6
 		if ($items !== NULL) {
 			$this->setItems($items);
 		}
@@ -147,13 +149,13 @@ class SelectBox extends FormControl
 			foreach ($value as $key2 => $value2) {
 				if (!$this->useKeys) {
 					if (!is_scalar($value2)) {
-						throw new InvalidArgumentException("All items must be scalars.");
+						throw new \InvalidArgumentException("All items must be scalars.");
 					}
 					$key2 = $value2;
 				}
 
 				if (isset($this->allowed[$key2])) {
-					throw new InvalidArgumentException("Items contain duplication for key '$key2'.");
+					throw new \InvalidArgumentException("Items contain duplication for key '$key2'.");
 				}
 
 				$this->allowed[$key2] = $value2;
@@ -194,14 +196,18 @@ class SelectBox extends FormControl
 
 	/**
 	 * Generates control's HTML element.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getControl()
 	{
 		$control = parent::getControl();
+		if ($this->skipFirst) {
+			reset($this->items);
+			$control->data['nette-empty-value'] = $this->useKeys ? key($this->items) : current($this->items);
+		}
 		$selected = $this->getValue();
 		$selected = is_array($selected) ? array_flip($selected) : array($selected => TRUE);
-		$option = Html::el('option');
+		$option = Nette\Web\Html::el('option');
 
 		foreach ($this->items as $key => $value) {
 			if (!is_array($value)) {
@@ -213,7 +219,7 @@ class SelectBox extends FormControl
 			}
 
 			foreach ($value as $key2 => $value2) {
-				if ($value2 instanceof Html) {
+				if ($value2 instanceof Nette\Web\Html) {
 					$dest->add((string) $value2->selected(isset($selected[$key2])));
 
 				} elseif ($this->useKeys) {

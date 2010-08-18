@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -33,32 +37,40 @@ class TextInput extends TextBase
 		$this->control->type = 'text';
 		$this->control->size = $cols;
 		$this->control->maxlength = $maxLength;
-		$this->filters[] = array('String', 'trim');
-		$this->filters[] = array($this, 'checkMaxLength');
+		$this->filters[] = callback($this, 'sanitize');
 		$this->value = '';
 	}
 
 
 
 	/**
-	 * Filter: shortens value to control's max length.
+	 * Filter: removes unnecessary whitespace and shortens value to control's max length.
 	 * @return string
 	 */
-	protected function checkMaxLength($value)
+	public function sanitize($value)
 	{
-		if ($this->control->maxlength && iconv_strlen($value, 'UTF-8') > $this->control->maxlength) {
+		if ($this->control->maxlength && Nette\String::length($value) > $this->control->maxlength) {
 			$value = iconv_substr($value, 0, $this->control->maxlength, 'UTF-8');
 		}
-		return $value;
+		return Nette\String::trim(strtr($value, "\r\n", '  '));
 	}
 
 
 
 	/**
-	 * Sets or unsets the password mode.
-	 * @param  bool
-	 * @return TextInput  provides a fluent interface
+	 * Changes control's type attribute.
+	 * @param  string
+	 * @return FormControl  provides a fluent interface
 	 */
+	public function setType($type)
+	{
+		$this->control->type = $type;
+		return $this;
+	}
+
+
+
+	/** @deprecated */
 	public function setPasswordMode($mode = TRUE)
 	{
 		$this->control->type = $mode ? 'password' : 'text';
@@ -69,7 +81,7 @@ class TextInput extends TextBase
 
 	/**
 	 * Generates control's HTML element.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getControl()
 	{
@@ -84,13 +96,9 @@ class TextInput extends TextBase
 
 	public function notifyRule(Rule $rule)
 	{
-		if (is_string($rule->operation) && strcasecmp($rule->operation, ':length') === 0 && !$rule->isNegative) {
-			$this->control->maxlength = is_array($rule->arg) ? $rule->arg[1] : $rule->arg;
-
-		} elseif (is_string($rule->operation) && strcasecmp($rule->operation, ':maxLength') === 0 && !$rule->isNegative) {
-			$this->control->maxlength = $rule->arg;
+		if (is_string($rule->operation) && strcasecmp($rule->operation, ':range') === 0 && !$rule->isNegative && $this->control->type !== 'text') {
+			list($this->control->min, $this->control->max) = $rule->arg; // for HTML 5
 		}
-
 		parent::notifyRule($rule);
 	}
 

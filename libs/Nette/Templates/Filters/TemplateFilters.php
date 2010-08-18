@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Templates
  */
+
+namespace Nette\Templates;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -26,7 +31,7 @@ final class TemplateFilters
 	 */
 	final public function __construct()
 	{
-		throw new LogicException("Cannot instantiate static class " . get_class($this));
+		throw new \LogicException("Cannot instantiate static class " . get_class($this));
 	}
 
 
@@ -37,13 +42,12 @@ final class TemplateFilters
 
 	/**
 	 * Filters out PHP code.
-	 *
 	 * @param  string
 	 * @return string
 	 */
 	public static function removePhp($s)
 	{
-		return preg_replace('#\x01@php:p\d+@\x02#', '<?php ?>', $s); // Template hides PHP code in these snippets
+		return String::replace($s, '#\x01@php:p\d+@\x02#', '<?php ?>'); // Template hides PHP code in these snippets
 	}
 
 
@@ -59,10 +63,10 @@ final class TemplateFilters
 	 */
 	public static function relativeLinks($s)
 	{
-		return preg_replace(
+		return String::replace(
+			$s,
 			'#(src|href|action)\s*=\s*(["\'])(?![a-z]+:|[\x01/\\#])#', // \x01 is PHP snippet
-			'$1=$2<?php echo \\$baseUri ?>',
-			$s
+			'$1=$2<?php echo \\$baseUri ?>'
 		);
 	}
 
@@ -80,10 +84,10 @@ final class TemplateFilters
 	 */
 	public static function netteLinks($s)
 	{
-		return preg_replace_callback(
+		return String::replace(
+			$s,
 			'#(src|href|action)\s*=\s*(["\'])(nette:.*?)([\#"\'])#',
-			array(__CLASS__, 'netteLinksCb'),
-			$s
+			callback(__CLASS__, 'netteLinksCb')
 		);
 	}
 
@@ -92,8 +96,9 @@ final class TemplateFilters
 	/**
 	 * Callback for self::netteLinks.
 	 * Parses a "nette" URI (scheme is 'nette') and converts to real URI
+	 * @internal
 	 */
-	private static function netteLinksCb($m)
+	public static function netteLinksCb($m)
 	{
 		list(, $attr, $quote, $uri, $fragment) = $m;
 
@@ -128,10 +133,10 @@ final class TemplateFilters
 	 */
 	public static function texyElements($s)
 	{
-		return preg_replace_callback(
+		return String::replace(
+			$s,
 			'#<texy([^>]*)>(.*?)</texy>#s',
-			array(__CLASS__, 'texyCb'),
-			$s
+			callback(__CLASS__, 'texyCb')
 		);
 	}
 
@@ -139,22 +144,16 @@ final class TemplateFilters
 
 	/**
 	 * Callback for self::texyBlocks.
+	 * @internal
 	 */
-	private static function texyCb($m)
+	public static function texyCb($m)
 	{
 		list(, $mAttrs, $mContent) = $m;
 
 		// parse attributes
 		$attrs = array();
 		if ($mAttrs) {
-			preg_match_all(
-				'#([a-z0-9:-]+)\s*(?:=\s*(\'[^\']*\'|"[^"]*"|[^\'"\s]+))?()#isu',
-				$mAttrs,
-				$arr,
-				PREG_SET_ORDER
-			);
-
-			foreach ($arr as $m) {
+			foreach (String::matchAll($mAttrs, '#([a-z0-9:-]+)\s*(?:=\s*(\'[^\']*\'|"[^"]*"|[^\'"\s]+))?()#isu') as $m) {
 				$key = strtolower($m[1]);
 				$val = $m[2];
 				if ($val == NULL) $attrs[$key] = TRUE;

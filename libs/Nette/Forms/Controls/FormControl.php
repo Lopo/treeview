@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette,
+	Nette\Web\Html;
 
 
 
@@ -24,17 +29,17 @@
  * @property-read string $htmlName
  * @property   string $htmlId
  * @property-read array $options
- * @property   ITranslator $translator
+ * @property   Nette\ITranslator $translator
  * @property   mixed $value
- * @property-read Html $controlPrototype
- * @property-read Html $labelPrototype
+ * @property-read Nette\Web\Html $controlPrototype
+ * @property-read Nette\Web\Html $labelPrototype
  * @property-read Rules $rules
  * @property-read array $errors
  * @property   bool $disabled
  * @property   bool $rendered
  * @property   bool $required
 */
-abstract class FormControl extends Component implements IFormControl
+abstract class FormControl extends Nette\Component implements IFormControl
 {
 	/** @var string */
 	public static $idMask = 'frm%s-%s';
@@ -45,10 +50,10 @@ abstract class FormControl extends Component implements IFormControl
 	/** @var mixed unfiltered control value */
 	protected $value;
 
-	/** @var Html  control element template */
+	/** @var Nette\Web\Html  control element template */
 	protected $control;
 
-	/** @var Html  label element template */
+	/** @var Nette\Web\Html  label element template */
 	protected $label;
 
 	/** @var array */
@@ -66,7 +71,7 @@ abstract class FormControl extends Component implements IFormControl
 	/** @var Rules */
 	private $rules;
 
-	/** @var ITranslator */
+	/** @var Nette\ITranslator */
 	private $translator = TRUE; // means autodetect
 
 	/** @var array user options */
@@ -105,22 +110,6 @@ abstract class FormControl extends Component implements IFormControl
 
 
 	/**
-	 * Overloaded parent setter. This method checks for invalid control name.
-	 * @param  IComponentContainer
-	 * @param  string
-	 * @return FormControl  provides a fluent interface
-	 */
-	public function setParent(IComponentContainer $parent = NULL, $name = NULL)
-	{
-		if ($name === 'submit') {
-			throw new InvalidArgumentException("Name 'submit' is not allowed due to JavaScript limitations.");
-		}
-		return parent::setParent($parent, $name);
-	}
-
-
-
-	/**
 	 * Returns form.
 	 * @param  bool   throw exception if form doesn't exist?
 	 * @return Form
@@ -133,7 +122,7 @@ abstract class FormControl extends Component implements IFormControl
 
 
 	/**
-	 * Returns name of control within a Form & INamingContainer scope.
+	 * Returns HTML name of control.
 	 * @return string
 	 */
 	public function getHtmlName()
@@ -141,13 +130,17 @@ abstract class FormControl extends Component implements IFormControl
 		if ($this->htmlName === NULL) {
 			$s = '';
 			$name = $this->getName();
-			$obj = $this->lookup('Nette\Forms\INamingContainer', TRUE);
+			$obj = $this->lookup('Nette\Forms\FormContainer', TRUE);
 			while (!($obj instanceof Form)) {
 				$s = "[$name]$s";
 				$name = $obj->getName();
-				$obj = $obj->lookup('Nette\Forms\INamingContainer', TRUE);
+				$obj = $obj->lookup('Nette\Forms\FormContainer', TRUE);
 			}
-			$this->htmlName = "$name$s";
+			$name .= $s;
+			if (is_numeric($name) || in_array($name, array('attributes','children','elements','focus','length','reset','style','submit','onsubmit'))) {
+				$name .= '_';
+			}
+			$this->htmlName = $name;
 		}
 		return $this->htmlName;
 	}
@@ -186,8 +179,21 @@ abstract class FormControl extends Component implements IFormControl
 
 
 	/**
+	 * Changes control's HTML attribute.
+	 * @param  string name
+	 * @param  mixed  value
+	 * @return FormControl  provides a fluent interface
+	 */
+	public function setAttribute($name, $value = TRUE)
+	{
+		$this->control->$name = $value;
+		return $this;
+	}
+
+
+
+	/**
 	 * Sets user-specific option.
-	 *
 	 * Common options:
 	 * - 'rendered' - indicate if method getControl() have been called
 	 * - 'required' - indicate if ':required' rule has been applied
@@ -240,10 +246,10 @@ abstract class FormControl extends Component implements IFormControl
 
 	/**
 	 * Sets translate adapter.
-	 * @param  ITranslator
+	 * @param  Nette\ITranslator
 	 * @return FormControl  provides a fluent interface
 	 */
-	public function setTranslator(ITranslator $translator = NULL)
+	public function setTranslator(Nette\ITranslator $translator = NULL)
 	{
 		$this->translator = $translator;
 		return $this;
@@ -253,7 +259,7 @@ abstract class FormControl extends Component implements IFormControl
 
 	/**
 	 * Returns translate adapter.
-	 * @return ITranslator|NULL
+	 * @return Nette\ITranslator|NULL
 	 */
 	final public function getTranslator()
 	{
@@ -274,7 +280,7 @@ abstract class FormControl extends Component implements IFormControl
 	public function translate($s, $count = NULL)
 	{
 		$translator = $this->getTranslator();
-		return $translator === NULL ? $s : $translator->translate($s, $count);
+		return $translator === NULL || $s == NULL ? $s : $translator->translate($s, $count); // intentionally ==
 	}
 
 
@@ -330,7 +336,7 @@ abstract class FormControl extends Component implements IFormControl
 	public function loadHttpData()
 	{
 		$path = explode('[', strtr(str_replace(array('[]', ']'), '', $this->getHtmlName()), '.', '_'));
-		$this->setValue(ArrayTools::get($this->getForm()->getHttpData(), $path));
+		$this->setValue(Nette\ArrayTools::get($this->getForm()->getHttpData(), $path));
 	}
 
 
@@ -365,7 +371,7 @@ abstract class FormControl extends Component implements IFormControl
 
 	/**
 	 * Generates control's HTML element.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getControl()
 	{
@@ -374,6 +380,13 @@ abstract class FormControl extends Component implements IFormControl
 		$control->name = $this->getHtmlName();
 		$control->disabled = $this->disabled;
 		$control->id = $this->getHtmlId();
+		if (!isset($control->data['nette-rules'])) {
+			$rules = self::exportRules($this->rules);
+			$rules = substr(json_encode($rules), 1, -1);
+			$rules = preg_replace('#"([a-z0-9]+)":#i', '$1:', $rules);
+			$rules = preg_replace('#(?<!\\\\)"([^\\\\\',]*)"#i', "'$1'", $rules);
+			$control->data['nette-rules'] = $rules ? $rules : NULL;
+		}
 		return $control;
 	}
 
@@ -382,7 +395,7 @@ abstract class FormControl extends Component implements IFormControl
 	/**
 	 * Generates label's HTML element.
 	 * @param  string
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getLabel($caption = NULL)
 	{
@@ -404,7 +417,7 @@ abstract class FormControl extends Component implements IFormControl
 
 	/**
 	 * Returns control's HTML element template.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	final public function getControlPrototype()
 	{
@@ -415,7 +428,7 @@ abstract class FormControl extends Component implements IFormControl
 
 	/**
 	 * Returns label's HTML element template.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	final public function getLabelPrototype()
 	{
@@ -542,6 +555,41 @@ abstract class FormControl extends Component implements IFormControl
 		if (is_string($rule->operation) && strcasecmp($rule->operation, ':filled') === 0) {
 			$this->setOption('required', TRUE);
 		}
+	}
+
+
+
+	/**
+	 * @return array
+	 */
+	private static function exportRules($rules)
+	{
+		$payload = array();
+		foreach ($rules as $rule) {
+			if (!is_string($rule->operation)) {
+				continue;
+
+			} elseif ($rule->type === Rule::VALIDATOR) {
+				$item = array('op' => ($rule->isNegative ? '~' : '') . $rule->operation, 'msg' => $rules->formatMessage($rule, FALSE));
+
+			} elseif ($rule->type === Rule::CONDITION) {
+				$item = array('op' => ($rule->isNegative ? '~' : '') . $rule->operation, 'rules' => self::exportRules($rule->subRules), 'control' => $rule->control->getHtmlName());
+				if ($rule->subRules->getToggles()) {
+					$item['toggle'] = $rule->subRules->getToggles();
+				}
+			}
+
+			if (is_array($rule->arg)) {
+				foreach ($rule->arg as $key => $value) {
+					$item['arg'][$key] = $value instanceof IFormControl ? (object) array('control' => $value->getHtmlName()) : $value;
+				}
+			} elseif ($rule->arg !== NULL) {
+				$item['arg'] = $rule->arg instanceof IFormControl ? (object) array('control' => $rule->arg->getHtmlName()) : $rule->arg;
+			}
+
+			$payload[] = $item;
+		}
+		return $payload;
 	}
 
 

@@ -4,11 +4,17 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette,
+	Nette\ObjectMixin,
+	Nette\Annotations;
 
 
 
@@ -18,12 +24,29 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class FunctionReflection extends ReflectionFunction
+class FunctionReflection extends \ReflectionFunction
 {
+	/** @var string|Closure */
+	private $value;
+
+
+	public function __construct($name)
+	{
+		parent::__construct($this->value = $name);
+	}
+
+
 
 	public function __toString()
 	{
 		return 'Function ' . $this->getName() . '()';
+	}
+
+
+
+	public function getClosure()
+	{
+		return $this->isClosure() ? $this->value : NULL;
 	}
 
 
@@ -33,29 +56,21 @@ class FunctionReflection extends ReflectionFunction
 
 
 	/**
-	 * @return FunctionReflection
-	 * @ignore internal
-	 */
-	public static function import(ReflectionFunction $ref)
-	{
-		return new self($ref->getName());
-	}
-
-
-
-	/**
-	 * @return ExtensionReflection
+	 * @return Nette\Reflection\ExtensionReflection
 	 */
 	public function getExtension()
 	{
-		return ($ref = parent::getExtension()) ? ExtensionReflection::import($ref) : NULL;
+		return ($name = $this->getExtensionName()) ? new ExtensionReflection($name) : NULL;
 	}
 
 
 
 	public function getParameters()
 	{
-		return array_map('MethodParameterReflection::import', parent::getParameters());
+		foreach ($res = parent::getParameters() as $key => $val) {
+			$res[$key] = new ParameterReflection($this->value, $val->getName());
+		}
+		return $res;
 	}
 
 
@@ -65,11 +80,11 @@ class FunctionReflection extends ReflectionFunction
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
-	public function getReflection()
+	public /**/static/**/ function getReflection()
 	{
-		return new ClassReflection($this);
+		return new Nette\Reflection\ClassReflection(/*5.2*$this*//**/get_called_class()/**/);
 	}
 
 
@@ -104,7 +119,7 @@ class FunctionReflection extends ReflectionFunction
 
 	public function __unset($name)
 	{
-		throw new MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
+		throw new \MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
 	}
 
 }

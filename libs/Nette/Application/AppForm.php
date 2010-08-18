@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -20,13 +24,13 @@
  *
  * @property-read Presenter $presenter
  */
-class AppForm extends Form implements ISignalReceiver
+class AppForm extends Nette\Forms\Form implements ISignalReceiver
 {
 
 	/**
 	 * Application form constructor.
 	 */
-	public function __construct(IComponentContainer $parent = NULL, $name = NULL)
+	public function __construct(Nette\IComponentContainer $parent = NULL, $name = NULL)
 	{
 		parent::__construct();
 		$this->monitor('Nette\Application\Presenter');
@@ -58,11 +62,17 @@ class AppForm extends Form implements ISignalReceiver
 	protected function attached($presenter)
 	{
 		if ($presenter instanceof Presenter) {
-				$this->setAction(new Link(
-					$presenter,
-					$this->lookupPath('Nette\Application\Presenter') . self::NAME_SEPARATOR . 'submit!',
-					array()
-				));
+			$name = $this->lookupPath('Nette\Application\Presenter');
+
+			if (!isset($this->getElementPrototype()->id)) {
+				$this->getElementPrototype()->id = 'frm-' . $name;
+			}
+
+			$this->setAction(new Link(
+				$presenter,
+				$name . self::NAME_SEPARATOR . 'submit!',
+				array()
+			));
 
 			// fill-in the form with HTTP data
 			if ($this->isSubmitted()) {
@@ -105,7 +115,7 @@ class AppForm extends Form implements ISignalReceiver
 		}
 
 		if ($isPost) {
-			return ArrayTools::mergeTree($request->getPost(), $request->getFiles());
+			return Nette\ArrayTools::mergeTree($request->getPost(), $request->getFiles());
 		} else {
 			return $request->getParams();
 		}

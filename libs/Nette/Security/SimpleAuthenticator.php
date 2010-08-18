@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Security
  */
+
+namespace Nette\Security;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Security
  */
-class SimpleAuthenticator extends Object implements IAuthenticator
+class SimpleAuthenticator extends Nette\Object implements IAuthenticator
 {
 	/** @var array */
 	private $userlist;
@@ -37,7 +41,6 @@ class SimpleAuthenticator extends Object implements IAuthenticator
 	/**
 	 * Performs an authentication against e.g. database.
 	 * and returns IIdentity on success or throws AuthenticationException
-	 *
 	 * @param  array
 	 * @return IIdentity
 	 * @throws AuthenticationException

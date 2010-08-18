@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette,
+	Nette\Web\Html;
 
 
 
@@ -19,15 +24,15 @@
  * @package    Nette\Forms
  *
  * @property   array $items
- * @property-read Html $separatorPrototype
- * @property-read Html $containerPrototype
+ * @property-read Nette\Web\Html $separatorPrototype
+ * @property-read Nette\Web\Html $containerPrototype
  */
 class RadioList extends FormControl
 {
-	/** @var Html  separator element template */
+	/** @var Nette\Web\Html  separator element template */
 	protected $separator;
 
-	/** @var Html  container element template */
+	/** @var Nette\Web\Html  container element template */
 	protected $container;
 
 	/** @var array */
@@ -88,7 +93,7 @@ class RadioList extends FormControl
 
 	/**
 	 * Returns separator HTML element template.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	final public function getSeparatorPrototype()
 	{
@@ -99,7 +104,7 @@ class RadioList extends FormControl
 
 	/**
 	 * Returns container HTML element template.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	final public function getContainerPrototype()
 	{
@@ -111,7 +116,7 @@ class RadioList extends FormControl
 	/**
 	 * Generates control's HTML element.
 	 * @param  mixed
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getControl($key = NULL)
 	{
@@ -148,6 +153,7 @@ class RadioList extends FormControl
 			}
 
 			$container->add((string) $control . (string) $label . $separator);
+			unset($control->data['nette-rules']);
 			// TODO: separator after last item?
 		}
 

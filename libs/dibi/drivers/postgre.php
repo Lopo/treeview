@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -24,9 +24,9 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiPostgreDriver extends DibiObject implements IDibiDriver
+class DibiPostgreDriver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -67,6 +67,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver
 			} else {
 				$string = '';
 				DibiConnection::alias($config, 'user', 'username');
+				DibiConnection::alias($config, 'dbname', 'database');
 				foreach (array('host','hostaddr','port','dbname','user','password','connect_timeout','options','sslmode','service') as $key) {
 					if (isset($config[$key])) $string .= $key . '=' . $config[$key] . ' ';
 				}
@@ -248,13 +249,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver
 
 		case dibi::IDENTIFIER:
 			// @see http://www.postgresql.org/docs/8.2/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
-			$a = strrpos($value, '.');
-			if ($a === FALSE) {
-				return '"' . str_replace('"', '""', $value) . '"';
-			} else {
-				// table.col delimite as table."col"
-				return substr($value, 0, $a) . '."' . str_replace('"', '""', substr($value, $a + 1)) . '"';
-			}
+			return '"' . str_replace('"', '""', $value) . '"';
 
 		case dibi::BOOL:
 			return $value ? 'TRUE' : 'FALSE';
@@ -393,7 +388,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ****************d*g**/
+	/********************* IDibiReflector ****************d*g**/
 
 
 
@@ -415,7 +410,7 @@ class DibiPostgreDriver extends DibiObject implements IDibiDriver
 		");
 		$res = pg_fetch_all($this->resultSet);
 		$this->free();
-		return $res;
+		return $res ? $res : array();
 	}
 
 

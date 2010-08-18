@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Mail
  */
+
+namespace Nette\Mail;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -43,9 +48,6 @@ class Mail extends MailMimePart
 
 	/** @var IMailer */
 	private $mailer;
-
-	/** @var string */
-	private $charset = 'UTF-8';
 
 	/** @var array */
 	private $attachments = array();
@@ -280,7 +282,7 @@ class Mail extends MailMimePart
 		$part->setBody($content === NULL ? $this->readFile($file, $contentType) : (string) $content);
 		$part->setContentType($contentType ? $contentType : 'application/octet-stream');
 		$part->setEncoding(self::ENCODING_BASE64);
-		$part->setHeader('Content-Disposition', 'inline; filename="' . basename($file) . '"');
+		$part->setHeader('Content-Disposition', 'inline; filename="' . String::fixEncoding(basename($file)) . '"');
 		$part->setHeader('Content-ID', '<' . md5(uniqid('', TRUE)) . '>');
 		return $this->inlines[$file] = $part;
 	}
@@ -300,7 +302,7 @@ class Mail extends MailMimePart
 		$part->setBody($content === NULL ? $this->readFile($file, $contentType) : (string) $content);
 		$part->setContentType($contentType ? $contentType : 'application/octet-stream');
 		$part->setEncoding(self::ENCODING_BASE64);
-		$part->setHeader('Content-Disposition', 'attachment; filename="' . basename($file) . '"');
+		$part->setHeader('Content-Disposition', 'attachment; filename="' . String::fixEncoding(basename($file)) . '"');
 		return $this->attachments[] = $part;
 	}
 
@@ -315,7 +317,7 @@ class Mail extends MailMimePart
 	private function readFile($file, & $contentType)
 	{
 		if (!is_file($file)) {
-			throw new FileNotFoundException("File '$file' not found.");
+			throw new \FileNotFoundException("File '$file' not found.");
 		}
 		if (!$contentType && $info = getimagesize($file)) {
 			$contentType = $info['mime'];
@@ -360,7 +362,7 @@ class Mail extends MailMimePart
 	public function getMailer()
 	{
 		if ($this->mailer === NULL) {
-			fixNamespace(self::$defaultMailer);
+			/*5.2* if ($a = strrpos(self::$defaultMailer, '\\')) self::$defaultMailer = substr(self::$defaultMailer, $a + 1); // fix namespace*/
 			$this->mailer = is_object(self::$defaultMailer) ? self::$defaultMailer : new self::$defaultMailer;
 		}
 		return $this->mailer;
@@ -375,7 +377,7 @@ class Mail extends MailMimePart
 	protected function build()
 	{
 		$mail = clone $this;
-		$hostname = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost';
+		$hostname = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
 		$mail->setHeader('Message-ID', '<' . md5(uniqid('', TRUE)) . "@$hostname>");
 
 		$mail->buildHtml();
@@ -401,14 +403,14 @@ class Mail extends MailMimePart
 					$tmp->addPart($value);
 				}
 			}
-			$alt->setContentType('text/html', $mail->charset)
+			$alt->setContentType('text/html', 'UTF-8')
 				->setEncoding(preg_match('#[\x80-\xFF]#', $mail->html) ? self::ENCODING_8BIT : self::ENCODING_7BIT)
 				->setBody($mail->html);
 		}
 
 		$text = $mail->getBody();
 		$mail->setBody(NULL);
-		$cursor->setContentType('text/plain', $mail->charset)
+		$cursor->setContentType('text/plain', 'UTF-8')
 			->setEncoding(preg_match('#[\x80-\xFF]#', $text) ? self::ENCODING_8BIT : self::ENCODING_7BIT)
 			->setBody($text);
 
@@ -423,9 +425,9 @@ class Mail extends MailMimePart
 	 */
 	protected function buildHtml()
 	{
-		if ($this->html instanceof ITemplate) {
+		if ($this->html instanceof Nette\Templates\ITemplate) {
 			$this->html->mail = $this;
-			if ($this->basePath === NULL && $this->html instanceof IFileTemplate) {
+			if ($this->basePath === NULL && $this->html instanceof Nette\Templates\IFileTemplate) {
 				$this->basePath = dirname($this->html->getFile());
 			}
 			$this->html = $this->html->__toString(TRUE);
@@ -433,7 +435,7 @@ class Mail extends MailMimePart
 
 		if ($this->basePath !== FALSE) {
 			$cids = array();
-			preg_match_all('#(src\s*=\s*|background\s*=\s*|url\()(["\'])(?![a-z]+:|[/\\#])(.+?)\\2#i', $this->html, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+			$matches = String::matchAll($this->html, '#(src\s*=\s*|background\s*=\s*|url\()(["\'])(?![a-z]+:|[/\\#])(.+?)\\2#i', PREG_OFFSET_CAPTURE);
 			foreach (array_reverse($matches) as $m)	{
 				$file = rtrim($this->basePath, '/\\') . '/' . $m[3][0];
 				$cid = isset($cids[$file]) ? $cids[$file] : $cids[$file] = substr($this->addEmbeddedFile($file)->getHeader("Content-ID"), 1, -1);
@@ -441,8 +443,8 @@ class Mail extends MailMimePart
 			}
 		}
 
-		if (!$this->getSubject() && preg_match('#<title>(.+?)</title>#is', $this->html, $matches)) {
-			$this->setSubject(html_entity_decode($matches[1], ENT_QUOTES, $this->charset));
+		if (!$this->getSubject() && $matches = String::match($this->html, '#<title>(.+?)</title>#is')) {
+			$this->setSubject(html_entity_decode($matches[1], ENT_QUOTES, 'UTF-8'));
 		}
 	}
 
@@ -455,16 +457,18 @@ class Mail extends MailMimePart
 	protected function buildText()
 	{
 		$text = $this->getBody();
-		if ($text instanceof ITemplate) {
+		if ($text instanceof Nette\Templates\ITemplate) {
 			$text->mail = $this;
 			$this->setBody($text->__toString(TRUE));
 
 		} elseif ($text == NULL && $this->html != NULL) { // intentionally ==
-			$text = preg_replace('#<(style|script|head).*</\\1>#Uis', '', $this->html);
-			$text = preg_replace('#<t[dh][ >]#i', " $0", $text);
-			$text = preg_replace('#[ \t\r\n]+#', ' ', $text);
-			$text = preg_replace('#<(/?p|/?h\d|li|br|/tr)[ >]#i', "\n$0", $text);
-			$text = html_entity_decode(strip_tags($text), ENT_QUOTES, $this->charset);
+			$text = String::replace($this->html, array(
+				'#<(style|script|head).*</\\1>#Uis' => '',
+				'#<t[dh][ >]#i' => " $0",
+				'#[ \t\r\n]+#' => ' ',
+				'#<(/?p|/?h\d|li|br|/tr)[ >]#i' => "\n$0",
+			));
+			$text = html_entity_decode(strip_tags($text), ENT_QUOTES, 'UTF-8');
 			$this->setBody(trim($text));
 		}
 	}

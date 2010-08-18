@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Caching
  */
+
+namespace Nette\Caching;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Caching
  */
-class FileStorage extends Object implements ICacheStorage
+class FileStorage extends Nette\Object implements ICacheStorage
 {
 	/**
 	 * Atomic thread safe logic:
@@ -31,7 +35,7 @@ class FileStorage extends Object implements ICacheStorage
 	 * delete* = try unlink, if fails (on NTFS) { lock(EX), truncate, close, unlink } else close (on ext3)
 	 */
 
-	/**#@+ @ignore internal cache file structure */
+	/**#@+ @internal cache file structure */
 	const META_HEADER_LEN = 28; // 22b signature + 6b meta-struct size + serialized meta-struct + data
 	// meta structure: array of
 	const META_TIME = 'time'; // timestamp
@@ -60,25 +64,24 @@ class FileStorage extends Object implements ICacheStorage
 	/** @var bool */
 	private $useDirs;
 
-	/** @var resource */
-	private $db;
+	/** @var ICacheJournal */
+	private $journal;
 
 
 
 	public function __construct($dir)
 	{
 		if (self::$useDirectories === NULL) {
-			self::$useDirectories = !ini_get('safe_mode');
-
 			// checks whether directory is writable
 			$uniq = uniqid('_', TRUE);
 			umask(0000);
-			if (!@mkdir("$dir/$uniq", 0777)) { // intentionally @
-				throw new InvalidStateException("Unable to write to directory '$dir'. Make this directory writable.");
+			if (!@mkdir("$dir/$uniq", 0777)) { // @ - is escalated to exception
+				throw new \InvalidStateException("Unable to write to directory '$dir'. Make this directory writable.");
 			}
 
 			// tests subdirectory mode
-			if (!self::$useDirectories && @file_put_contents("$dir/$uniq/_", '') !== FALSE) { // intentionally @
+			self::$useDirectories = !ini_get('safe_mode');
+			if (!self::$useDirectories && @file_put_contents("$dir/$uniq/_", '') !== FALSE) { // @ - error is expected
 				self::$useDirectories = TRUE;
 				unlink("$dir/$uniq/_");
 			}
@@ -164,11 +167,6 @@ class FileStorage extends Object implements ICacheStorage
 			self::META_TIME => microtime(),
 		);
 
-		if (!is_string($data)) {
-			$data = serialize($data);
-			$meta[self::META_SERIALIZED] = TRUE;
-		}
-
 		if (!empty($dp[Cache::EXPIRE])) {
 			if (empty($dp[Cache::SLIDING])) {
 				$meta[self::META_EXPIRE] = $dp[Cache::EXPIRE] + time(); // absolute time
@@ -197,33 +195,25 @@ class FileStorage extends Object implements ICacheStorage
 				return;
 			}
 		}
-		$handle = @fopen($cacheFile, 'r+b'); // intentionally @
+		$handle = @fopen($cacheFile, 'r+b'); // @ - file may not exist
 		if (!$handle) {
-			$handle = fopen($cacheFile, 'wb'); // intentionally @
+			$handle = fopen($cacheFile, 'wb');
 			if (!$handle) {
 				return;
 			}
 		}
 
 		if (!empty($dp[Cache::TAGS]) || isset($dp[Cache::PRIORITY])) {
-			$db = $this->getDb();
-			$dbFile = sqlite_escape_string($cacheFile);
-			$query = '';
-			if (!empty($dp[Cache::TAGS])) {
-				foreach ((array) $dp[Cache::TAGS] as $tag) {
-					$query .= "INSERT INTO cache (file, tag) VALUES ('$dbFile', '" . sqlite_escape_string($tag) . "');";
-				}
-			}
-			if (isset($dp[Cache::PRIORITY])) {
-				$query .= "INSERT INTO cache (file, priority) VALUES ('$dbFile', '" . (int) $dp[Cache::PRIORITY] . "');";
-			}
-			if (!sqlite_exec($db, "BEGIN; DELETE FROM cache WHERE file = '$dbFile'; $query COMMIT;")) {
-				return;
-			}
+			$this->getJournal()->write($cacheFile, $dp);
 		}
 
 		flock($handle, LOCK_EX);
 		ftruncate($handle, 0);
+
+		if (!is_string($data)) {
+			$data = serialize($data);
+			$meta[self::META_SERIALIZED] = TRUE;
+		}
 
 		$head = serialize($meta) . '?>';
 		$head = '<?php //netteCache[01]' . str_pad((string) strlen($head), 6, '0', STR_PAD_LEFT) . $head;
@@ -279,14 +269,14 @@ class FileStorage extends Object implements ICacheStorage
 		if ($all || $collector) {
 			$now = time();
 			$base = $this->dir . DIRECTORY_SEPARATOR . 'c';
-			$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->dir), RecursiveIteratorIterator::CHILD_FIRST);
+			$iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->dir), \RecursiveIteratorIterator::CHILD_FIRST);
 			foreach ($iterator as $entry) {
 				$path = (string) $entry;
 				if (strncmp($path, $base, strlen($base))) { // skip files out of cache
 					continue;
 				}
 				if ($entry->isDir()) { // collector: remove empty dirs
-					@rmdir($path); // intentionally @
+					@rmdir($path); // @ - removing dirs is not necessary
 					continue;
 				}
 				if ($all) {
@@ -305,33 +295,13 @@ class FileStorage extends Object implements ICacheStorage
 				}
 			}
 
-			if ($all && extension_loaded('sqlite')) {
-				sqlite_exec("DELETE FROM cache", $this->getDb());
-			}
+			$this->getJournal()->clean($conds);
 			return;
 		}
 
 		// cleaning using journal
-		if (!empty($conds[Cache::TAGS])) {
-			$db = $this->getDb();
-			foreach ((array) $conds[Cache::TAGS] as $tag) {
-				$tmp[] = "'" . sqlite_escape_string($tag) . "'";
-			}
-			$query[] = "tag IN (" . implode(',', $tmp) . ")";
-		}
-
-		if (isset($conds[Cache::PRIORITY])) {
-			$query[] = "priority <= " . (int) $conds[Cache::PRIORITY];
-		}
-
-		if (isset($query)) {
-			$db = $this->getDb();
-			$query = implode(' OR ', $query);
-			$files = sqlite_single_query("SELECT file FROM cache WHERE $query", $db, FALSE);
-			foreach ($files as $file) {
-				$this->delete($file);
-			}
-			sqlite_exec("DELETE FROM cache WHERE $query", $db);
+		foreach ($this->getJournal()->clean($conds) as $file) {
+			$this->delete($file);
 		}
 	}
 
@@ -345,7 +315,7 @@ class FileStorage extends Object implements ICacheStorage
 	 */
 	protected function readMeta($file, $lock)
 	{
-		$handle = @fopen($file, 'r+b'); // intentionally @
+		$handle = @fopen($file, 'r+b'); // @ - file may not exist
 		if (!$handle) return NULL;
 
 		flock($handle, $lock);
@@ -413,39 +383,34 @@ class FileStorage extends Object implements ICacheStorage
 	 */
 	private static function delete($file, $handle = NULL)
 	{
-		if (@unlink($file)) { // intentionally @
+		if (@unlink($file)) { // @ - file may not already exist
 			if ($handle) fclose($handle);
 			return;
 		}
 
 		if (!$handle) {
-			$handle = @fopen($file, 'r+'); // intentionally @
+			$handle = @fopen($file, 'r+'); // @ - file may not exist
 		}
 		if ($handle) {
 			flock($handle, LOCK_EX);
 			ftruncate($handle, 0);
 			fclose($handle);
-			@unlink($file); // intentionally @; not atomic
+			@unlink($file); // @ - file may not already exist
 		}
 	}
 
 
 
 	/**
-	 * Returns SQLite resource.
-	 * @return resource
+	 * Returns the ICacheJournal
+	 * @return ICacheJournal
 	 */
-	protected function getDb()
+	protected function getJournal()
 	{
-		if ($this->db === NULL) {
-			if (!extension_loaded('sqlite')) {
-				throw new InvalidStateException("SQLite extension is required for storing tags and priorities.");
-			}
-			$this->db = sqlite_open($this->dir . '/cachejournal.sdb');
-			@sqlite_exec($this->db, 'CREATE TABLE cache (file VARCHAR NOT NULL, priority, tag VARCHAR);
-			CREATE INDEX IDX_FILE ON cache (file); CREATE INDEX IDX_PRI ON cache (priority); CREATE INDEX IDX_TAG ON cache (tag);'); // intentionally @
+		if ($this->journal === NULL) {
+			$this->journal = Nette\Environment::getService('Nette\\Caching\\ICacheJournal');
 		}
-		return $this->db;
+		return $this->journal;
 	}
 
 }

@@ -107,7 +107,7 @@ final class DibiTranslator extends DibiObject
 				} else {
 					$sql[] = substr($arg, 0, $toSkip)
 /*
-					preg_replace_callback('/
+					. preg_replace_callback('/
 					(?=[`[\'":%?])                    ## speed-up
 					(?:
 						`(.+?)`|                     ## 1) `identifier`
@@ -115,8 +115,8 @@ final class DibiTranslator extends DibiObject
 						(\')((?:\'\'|[^\'])*)\'|     ## 3,4) 'string'
 						(")((?:""|[^"])*)"|          ## 5,6) "string"
 						(\'|")|                      ## 7) lone quote
-						:(\S*?:)([a-zA-Z0-9._]?)|    ## 8,9) substitution
-						%([a-zA-Z]{1,4})(?![a-zA-Z]) ## 10) modifier
+						:(\S*?:)([a-zA-Z0-9._]?)|    ## 8,9) :substitution:
+						%([a-zA-Z]{1,4})(?![a-zA-Z])|## 10) modifier
 						(\?)                         ## 11) placeholder
 					)/xs',
 */                  // note: this can change $this->args & $this->cursor & ...
@@ -124,7 +124,7 @@ final class DibiTranslator extends DibiObject
 							array($this, 'cb'),
 							substr($arg, $toSkip)
 					);
-
+					if (preg_last_error()) throw new PcreException;
 				}
 				continue;
 			}
@@ -134,8 +134,8 @@ final class DibiTranslator extends DibiObject
 				continue;
 			}
 
-			if ($arg instanceof ArrayObject) {
-				$arg = (array) $arg;
+			if ($arg instanceof Traversable) {
+				$arg = iterator_to_array($arg);
 			}
 
 			if (is_array($arg)) {
@@ -192,8 +192,8 @@ final class DibiTranslator extends DibiObject
 	public function formatValue($value, $modifier)
 	{
 		// array processing (with or without modifier)
-		if ($value instanceof ArrayObject) {
-			$value = (array) $value;
+		if ($value instanceof Traversable) {
+			$value = iterator_to_array($value);
 		}
 
 		if (is_array($value)) {
@@ -218,7 +218,7 @@ final class DibiTranslator extends DibiObject
 
 						} else {
 							$v = $this->formatValue($v, $pair[1]);
-							$vx[] = $k . ($pair[1] === 'l' ? 'IN ' : ($v === 'NULL' ? 'IS ' : '= ')) . $v;
+							$vx[] = $k . ($pair[1] === 'l' || $pair[1] === 'in' ? 'IN ' : ($v === 'NULL' ? 'IS ' : '= ')) . $v;
 						}
 
 					} else {
@@ -248,12 +248,13 @@ final class DibiTranslator extends DibiObject
 				return implode(', ', $vx);
 
 
+			case 'in':// replaces scalar %in modifier!
 			case 'l': // (val, val, ...)
 				foreach ($value as $k => $v) {
 					$pair = explode('%', $k, 2); // split into identifier & modifier
 					$vx[] = $this->formatValue($v, isset($pair[1]) ? $pair[1] : (is_array($v) ? 'ex' : FALSE));
 				}
-				return '(' . ($vx ? implode(', ', $vx) : 'NULL') . ')';
+				return '(' . (($vx || $modifier === 'l') ? implode(', ', $vx) : 'NULL') . ')';
 
 
 			case 'v': // (key, key, ...) VALUES (val, val, ...)
@@ -287,13 +288,15 @@ final class DibiTranslator extends DibiObject
 					}
 				}
 				foreach ($vx as $k => $v) {
-					$vx[$k] = '(' . ($v ? implode(', ', $v) : 'NULL') . ')';
+					$vx[$k] = '(' . implode(', ', $v) . ')';
 				}
 				return '(' . implode(', ', $kx) . ') VALUES ' . implode(', ', $vx);
 
 			case 'by': // key ASC, key DESC
 				foreach ($value as $k => $v) {
-					if (is_string($k)) {
+					if (is_array($v)) {
+						$vx[] = $this->formatValue($v, 'ex');
+					} elseif (is_string($k)) {
 						$v = (is_string($v) && strncasecmp($v, 'd', 1)) || $v > 0 ? 'ASC' : 'DESC';
 						$vx[] = $this->delimite($k) . ' ' . $v;
 					} else {
@@ -311,7 +314,7 @@ final class DibiTranslator extends DibiObject
 				foreach ($value as $v) {
 					$vx[] = $this->formatValue($v, $modifier);
 				}
-				return $vx ? implode(', ', $vx) : 'NULL';
+				return implode(', ', $vx);
 			}
 		}
 
@@ -329,17 +332,19 @@ final class DibiTranslator extends DibiObject
 			case 'b':  // boolean
 				return $value === NULL ? 'NULL' : $this->driver->escape($value, $modifier);
 
-			case 'sn': // string or NULL
+			case 'sN': // string or NULL
+			case 'sn':
 				return $value == '' ? 'NULL' : $this->driver->escape($value, dibi::TEXT); // notice two equal signs
 
-			case 'in': // signed int or NULL
+			case 'iN': // signed int or NULL
+			case 'in': // deprecated
 				if ($value == '') $value = NULL;
 				// intentionally break omitted
 
 			case 'i':  // signed int
 			case 'u':  // unsigned int, ignored
 				// support for long numbers - keep them unchanged
-				if (is_string($value) && preg_match('#[+-]?\d+(e\d+)?$#A', $value)) {
+				if (is_string($value) && preg_match('#[+-]?\d++(e\d+)?$#A', $value)) {
 					return $value;
 				} else {
 					return $value === NULL ? 'NULL' : (string) (int) ($value + 0);
@@ -350,7 +355,7 @@ final class DibiTranslator extends DibiObject
 				if (is_string($value) && is_numeric($value) && strpos($value, 'x') === FALSE) {
 					return $value; // something like -9E-005 is accepted by SQL, HEX values are not
 				} else {
-					return $value === NULL ? 'NULL' : rtrim(rtrim(number_format($value, 5, '.', ''), '0'), '.');
+					return $value === NULL ? 'NULL' : rtrim(rtrim(number_format($value + 0, 5, '.', ''), '0'), '.');
 				}
 
 			case 'd':  // date
@@ -376,16 +381,16 @@ final class DibiTranslator extends DibiObject
 				$value = (string) $value;
 				// speed-up - is regexp required?
 				$toSkip = strcspn($value, '`[\'":');
-				if (strlen($value) === $toSkip) { // needn't be translated
-					return $value;
-				} else {
-					return substr($value, 0, $toSkip)
+				if (strlen($value) !== $toSkip) {
+					$value = substr($value, 0, $toSkip)
 					. preg_replace_callback(
 						'/(?=[`[\'":])(?:`(.+?)`|\[(.+?)\]|(\')((?:\'\'|[^\'])*)\'|(")((?:""|[^"])*)"|(\'|")|:(\S*?:)([a-zA-Z0-9._]?))/s',
 						array($this, 'cb'),
 						substr($value, $toSkip)
 					);
+					if (preg_last_error()) throw new PcreException;
 				}
+				return $value;
 
 			case 'SQL': // preserve as real SQL (TODO: rename to %sql)
 				return (string) $value;
@@ -559,14 +564,25 @@ final class DibiTranslator extends DibiObject
 	 */
 	private function delimite($value)
 	{
-		if ($value === '*') {
-			return '*';
-
-		} elseif (strpos($value, ':') !== FALSE) { // provide substitution
-			$value = preg_replace_callback('#:(.*):#U', array(__CLASS__, 'subCb'), $value);
+		$parts = explode('.', self::substitute($value));
+		foreach ($parts as & $value) {
+			$value = $value === '*' ? '*' : $this->driver->escape($value, dibi::IDENTIFIER);
 		}
+		return implode('.', $parts);
+	}
 
-		return $this->driver->escape($value, dibi::IDENTIFIER);
+
+
+	/**
+	 * Provides substitution.
+	 * @return string
+	 */
+	public static function substitute($value)
+	{
+		if (strpos($value, ':') !== FALSE) { // provide substitution
+			return preg_replace_callback('#:([^:\s]*):#', array(__CLASS__, 'subCb'), $value);
+		}
+		return $value;
 	}
 
 

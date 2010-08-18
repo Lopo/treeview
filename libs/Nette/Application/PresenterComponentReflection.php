@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -17,9 +21,9 @@
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
- * @ignore internal
+ * @internal
  */
-class PresenterComponentReflection extends ClassReflection
+class PresenterComponentReflection extends Nette\Reflection\ClassReflection
 {
 	/** @var array getPersistentParams cache */
 	private static $ppCache = array();
@@ -41,7 +45,7 @@ class PresenterComponentReflection extends ClassReflection
 		$params = & self::$ppCache[$class];
 		if ($params !== NULL) return $params;
 		$params = array();
-		if (is_subclass_of($class, 'PresenterComponent')) {
+		if (is_subclass_of($class, 'Nette\Application\PresenterComponent')) {
 			// $class::getPersistentParams() in PHP 5.3
 			$defaults = get_class_vars($class);
 			foreach (call_user_func(array($class, 'getPersistentParams'), $class) as $name => $meta) {
@@ -67,7 +71,7 @@ class PresenterComponentReflection extends ClassReflection
 		$components = & self::$pcCache[$class];
 		if ($components !== NULL) return $components;
 		$components = array();
-		if (is_subclass_of($class, 'Presenter')) {
+		if (is_subclass_of($class, 'Nette\Application\Presenter')) {
 			// $class::getPersistentComponents() in PHP 5.3
 			foreach (call_user_func(array($class, 'getPersistentComponents'), $class) as $name => $meta) {
 				if (is_string($meta)) $name = $meta;
@@ -92,9 +96,9 @@ class PresenterComponentReflection extends ClassReflection
 		$cache = & self::$mcCache[strtolower($class . ':' . $method)];
 		if ($cache === NULL) try {
 			$cache = FALSE;
-			$rm = MethodReflection::from($class, $method);
+			$rm = Nette\Reflection\MethodReflection::from($class, $method);
 			$cache = $this->isInstantiable() && $rm->isPublic() && !$rm->isAbstract() && !$rm->isStatic();
-		} catch (ReflectionException $e) {
+		} catch (\ReflectionException $e) {
 		}
 		return $cache;
 	}

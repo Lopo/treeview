@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -25,16 +29,14 @@
  * @example    forms/custom-validator.php  How to use custom validator
  * @example    forms/naming-containers.php  How to use naming containers
  * @example    forms/CSRF-protection.php  How to use Cross-Site Request Forgery (CSRF) form protection
- * @example    forms/custom-encoding.php  How to change charset
  *
  * @property   string $action
  * @property   string $method
  * @property-read array $groups
  * @property-read array $httpData
- * @property   string $encoding
- * @property   ITranslator $translator
+ * @property   Nette\ITranslator $translator
  * @property-read array $errors
- * @property-read Html $elementPrototype
+ * @property-read Nette\Web\Html $elementPrototype
  * @property   IFormRenderer $renderer
  * @property-read boold $submitted
  */
@@ -64,9 +66,7 @@ class Form extends FormContainer
 	// file upload
 	const MAX_FILE_SIZE = ':fileSize';
 	const MIME_TYPE = ':mimeType';
-
-	// special case
-	const SCRIPT = 'Nette\Forms\InstantClientScript::javascript';
+	const IMAGE = ':image';
 	/**#@-*/
 
 	/**#@+ method */
@@ -74,10 +74,10 @@ class Form extends FormContainer
 	const POST = 'post';
 	/**#@-*/
 
-	/** @ignore internal tracker ID */
+	/** @internal tracker ID */
 	const TRACKER_ID = '_form_';
 
-	/** @ignore internal protection token ID */
+	/** @internal protection token ID */
 	const PROTECTOR_ID = '_token_';
 
 	/** @var array of function(Form $sender); Occurs when the form is submitted and successfully validated */
@@ -98,7 +98,7 @@ class Form extends FormContainer
 	/** @var IFormRenderer */
 	private $renderer;
 
-	/** @var ITranslator */
+	/** @var Nette\ITranslator */
 	private $translator;
 
 	/** @var array of FormGroup */
@@ -106,9 +106,6 @@ class Form extends FormContainer
 
 	/** @var array */
 	private $errors = array();
-
-	/** @var array */
-	private $encoding = 'UTF-8';
 
 
 
@@ -118,9 +115,11 @@ class Form extends FormContainer
 	 */
 	public function __construct($name = NULL)
 	{
-		$this->element = Html::el('form');
+		$this->element = Nette\Web\Html::el('form');
 		$this->element->action = ''; // RFC 1808 -> empty uri means 'this'
 		$this->element->method = self::POST;
+		$this->element->id = 'frm-' . $name;
+
 		$this->monitor(__CLASS__);
 		if ($name !== NULL) {
 			$tracker = new HiddenField($name);
@@ -141,7 +140,7 @@ class Form extends FormContainer
 	protected function attached($obj)
 	{
 		if ($obj instanceof self) {
-			throw new InvalidStateException('Nested forms are forbidden.');
+			throw new \InvalidStateException('Nested forms are forbidden.');
 		}
 	}
 
@@ -190,7 +189,7 @@ class Form extends FormContainer
 	public function setMethod($method)
 	{
 		if ($this->httpData !== NULL) {
-			throw new InvalidStateException(__METHOD__ . '() must be called until the form is empty.');
+			throw new \InvalidStateException(__METHOD__ . '() must be called until the form is empty.');
 		}
 		$this->element->method = strtolower($method);
 		return $this;
@@ -205,16 +204,6 @@ class Form extends FormContainer
 	public function getMethod()
 	{
 		return $this->element->method;
-	}
-
-
-
-	/**
-	 * @deprecated
-	 */
-	public function addTracker()
-	{
-		throw new DeprecatedException(__METHOD__ . '() is deprecated; pass form name to the constructor.');
 	}
 
 
@@ -281,7 +270,7 @@ class Form extends FormContainer
 			$name = array_search($group, $this->groups, TRUE);
 
 		} else {
-			throw new InvalidArgumentException("Group not found in form '$this->name'");
+			throw new \InvalidArgumentException("Group not found in form '$this->name'");
 		}
 
 		foreach ($group->getControls() as $control) {
@@ -316,43 +305,16 @@ class Form extends FormContainer
 
 
 
-	/**
-	 * Set the encoding for the values.
-	 * @param  string
-	 * @return Form  provides a fluent interface
-	 */
-	public function setEncoding($value)
-	{
-		$this->encoding = empty($value) ? 'UTF-8' : strtoupper($value);
-		if ($this->encoding !== 'UTF-8' && !extension_loaded('mbstring')) {
-			throw new Exception("The PHP extension 'mbstring' is required for this encoding but is not loaded.");
-		}
-		return $this;
-	}
-
-
-
-	/**
-	 * Returns the encoding.
-	 * @return string
-	 */
-	final public function getEncoding()
-	{
-		return $this->encoding;
-	}
-
-
-
 	/********************* translator ****************d*g**/
 
 
 
 	/**
 	 * Sets translate adapter.
-	 * @param  ITranslator
+	 * @param  Nette\ITranslator
 	 * @return Form  provides a fluent interface
 	 */
-	public function setTranslator(ITranslator $translator = NULL)
+	public function setTranslator(Nette\ITranslator $translator = NULL)
 	{
 		$this->translator = $translator;
 		return $this;
@@ -362,7 +324,7 @@ class Form extends FormContainer
 
 	/**
 	 * Returns translate adapter.
-	 * @return ITranslator|NULL
+	 * @return Nette\ITranslator|NULL
 	 */
 	final public function getTranslator()
 	{
@@ -422,7 +384,7 @@ class Form extends FormContainer
 	{
 		if ($this->httpData === NULL) {
 			if (!$this->isAnchored()) {
-				throw new InvalidStateException('Form is not anchored and therefore can not determine whether it was submitted.');
+				throw new \InvalidStateException('Form is not anchored and therefore can not determine whether it was submitted.');
 			}
 			$this->httpData = (array) $this->receiveHttpData();
 		}
@@ -470,9 +432,9 @@ class Form extends FormContainer
 			return;
 		}
 
-		$httpRequest->setEncoding($this->encoding);
+		$httpRequest->setEncoding('utf-8');
 		if ($httpRequest->isMethod('post')) {
-			$data = ArrayTools::mergeTree($httpRequest->getPost(), $httpRequest->getFiles());
+			$data = Nette\ArrayTools::mergeTree($httpRequest->getPost(), $httpRequest->getFiles());
 		} else {
 			$data = $httpRequest->getQuery();
 		}
@@ -484,16 +446,6 @@ class Form extends FormContainer
 		}
 
 		return $data;
-	}
-
-
-
-	/**
-	 * @deprecated
-	 */
-	public function processHttpRequest()
-	{
-		$this->fireEvents();
 	}
 
 
@@ -572,7 +524,7 @@ class Form extends FormContainer
 
 	/**
 	 * Returns form's HTML element template.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getElementPrototype()
 	{
@@ -616,13 +568,7 @@ class Form extends FormContainer
 	{
 		$args = func_get_args();
 		array_unshift($args, $this);
-		$s = call_user_func_array(array($this->getRenderer(), 'render'), $args);
-
-		if (strcmp($this->encoding, 'UTF-8')) {
-			echo mb_convert_encoding($s, 'HTML-ENTITIES', 'UTF-8');
-		} else {
-			echo $s;
-		}
+		echo call_user_func_array(array($this->getRenderer(), 'render'), $args);
 	}
 
 
@@ -635,18 +581,13 @@ class Form extends FormContainer
 	public function __toString()
 	{
 		try {
-			if (strcmp($this->encoding, 'UTF-8')) {
-				return mb_convert_encoding($this->getRenderer()->render($this), 'HTML-ENTITIES', 'UTF-8');
-			} else {
-				return $this->getRenderer()->render($this);
-			}
+			return $this->getRenderer()->render($this);
 
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			if (func_get_args() && func_get_arg(0)) {
 				throw $e;
 			} else {
-				trigger_error($e->getMessage(), E_USER_WARNING);
-				return '';
+				Nette\Debug::toStringException($e);
 			}
 		}
 	}
@@ -658,21 +599,21 @@ class Form extends FormContainer
 
 
 	/**
-	 * @return IHttpRequest
+	 * @return Nette\Web\IHttpRequest
 	 */
 	protected function getHttpRequest()
 	{
-		return class_exists('Environment') ? Environment::getHttpRequest() : new HttpRequest;
+		return class_exists('Nette\Environment') ? Nette\Environment::getHttpRequest() : new Nette\Web\HttpRequest;
 	}
 
 
 
 	/**
-	 * @return Session
+	 * @return Nette\Web\Session
 	 */
 	protected function getSession()
 	{
-		return Environment::getSession();
+		return Nette\Environment::getSession();
 	}
 
 }

@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Web
  */
+
+namespace Nette\Web;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -32,7 +37,7 @@
  * @property-read string $remoteHost
  * @property-read bool $secured
  */
-class HttpRequest extends Object implements IHttpRequest
+class HttpRequest extends Nette\Object implements IHttpRequest
 {
 	/** @var array */
 	protected $query;
@@ -197,14 +202,14 @@ class HttpRequest extends Object implements IHttpRequest
 		$this->originalUri->query = isset($tmp[1]) ? $tmp[1] : '';
 		$this->originalUri->freeze();
 
-		$requestUri = preg_replace(array_keys($this->uriFilter[0]), array_values($this->uriFilter[0]), $requestUri);
+		$requestUri = String::replace($requestUri, $this->uriFilter[0]);
 		$tmp = explode('?', $requestUri, 2);
-		$uri->path = preg_replace(array_keys($this->uriFilter[PHP_URL_PATH]), array_values($this->uriFilter[PHP_URL_PATH]), $tmp[0]);
-		$uri->path = String::fixEncoding($uri->path);
+		$uri->path = String::replace($tmp[0], $this->uriFilter[PHP_URL_PATH]);
 		$uri->query = isset($tmp[1]) ? $tmp[1] : '';
 
 		// normalized uri
 		$uri->canonicalize();
+		$uri->path = String::fixEncoding($uri->path);
 
 		// detect base URI-path - inspired by Zend Framework (c) Zend Technologies USA Inc. (http://www.zend.com), new BSD license
 		$filename = isset($_SERVER['SCRIPT_FILENAME']) ? basename($_SERVER['SCRIPT_FILENAME']) : NULL;
@@ -340,7 +345,7 @@ class HttpRequest extends Object implements IHttpRequest
 			$this->initialize();
 		}
 		$args = func_get_args();
-		return ArrayTools::get($this->files, $args);
+		return Nette\ArrayTools::get($this->files, $args);
 	}
 
 
@@ -469,7 +474,7 @@ class HttpRequest extends Object implements IHttpRequest
 								if (!String::checkEncoding($v)) {
 									$v = iconv($this->encoding, 'UTF-8//IGNORE', $v);
 								}
-								$v = html_entity_decode($v, ENT_NOQUOTES, 'UTF-8');
+								$v = html_entity_decode($v, ENT_QUOTES, 'UTF-8');
 							}
 							$v = preg_replace($nonChars, '', $v);
 						}
@@ -597,8 +602,11 @@ class HttpRequest extends Object implements IHttpRequest
 				$this->headers = array();
 				foreach ($_SERVER as $k => $v) {
 					if (strncmp($k, 'HTTP_', 5) == 0) {
-						$this->headers[ strtr(strtolower(substr($k, 5)), '_', '-') ] = $v;
+						$k = substr($k, 5);
+					} elseif (strncmp($k, 'CONTENT_', 8)) {
+						continue;
 					}
+					$this->headers[ strtr(strtolower($k), '_', '-') ] = $v;
 				}
 			}
 		}

@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
  */
-class CliRouter extends Object implements IRouter
+class CliRouter extends Nette\Object implements IRouter
 {
 	const PRESENTER_KEY = 'action';
 
@@ -39,10 +43,10 @@ class CliRouter extends Object implements IRouter
 
 	/**
 	 * Maps command line arguments to a PresenterRequest object.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @return PresenterRequest|NULL
 	 */
-	public function match(IHttpRequest $httpRequest)
+	public function match(Nette\Web\IHttpRequest $httpRequest)
 	{
 		if (empty($_SERVER['argv']) || !is_array($_SERVER['argv'])) {
 			return NULL;
@@ -82,7 +86,7 @@ class CliRouter extends Object implements IRouter
 		}
 
 		if (!isset($params[self::PRESENTER_KEY])) {
-			throw new InvalidStateException('Missing presenter & action in route definition.');
+			throw new \InvalidStateException('Missing presenter & action in route definition.');
 		}
 		$presenter = $params[self::PRESENTER_KEY];
 		if ($a = strrpos($presenter, ':')) {
@@ -101,11 +105,11 @@ class CliRouter extends Object implements IRouter
 
 	/**
 	 * This router is only unidirectional.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @param  PresenterRequest
 	 * @return NULL
 	 */
-	public function constructUrl(PresenterRequest $appRequest, IHttpRequest $httpRequest)
+	public function constructUrl(PresenterRequest $appRequest, Nette\Web\IHttpRequest $httpRequest)
 	{
 		return NULL;
 	}

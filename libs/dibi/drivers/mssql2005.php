@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -16,13 +16,16 @@
  *
  * Connection options:
  *   - 'host' - the MS SQL server host name. It can also include a port number (hostname:port)
+ *   - 'username'
+ *   - 'password'
+ *   - 'database' - the database name to select
  *   - 'options' - connection info array {@link http://msdn.microsoft.com/en-us/library/cc296161(SQL.90).aspx}
  *   - 'lazy' - if TRUE, connection will be established only when required
  *   - 'charset' - character encoding to set (default is UTF-8)
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
 class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 {
@@ -53,14 +56,15 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	 */
 	public function connect(array &$config)
 	{
+		DibiConnection::alias($config, 'options|UID', 'username');
+		DibiConnection::alias($config, 'options|PWD', 'password');
+		DibiConnection::alias($config, 'options|Database', 'database');
+
 		if (isset($config['resource'])) {
 			$this->connection = $config['resource'];
 
-		} elseif (isset($config['options'])) {
-			$this->connection = sqlsrv_connect($config['host'], (array) $config['options']);
-
 		} else {
-			$this->connection = sqlsrv_connect($config['host']);
+			$this->connection = sqlsrv_connect($config['host'], (array) $config['options']);
 		}
 
 		if (!is_resource($this->connection)) {
@@ -199,8 +203,7 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 
 		case dibi::IDENTIFIER:
 			// @see http://msdn.microsoft.com/en-us/library/ms176027.aspx
-			$value = str_replace(array('[', ']'), array('[[', ']]'), $value);
-			return '[' . str_replace('.', '].[', $value) . ']';
+			return '[' . str_replace(array('[', ']'), array('[[', ']]'), $value) . ']';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -336,57 +339,6 @@ class DibiMsSql2005Driver extends DibiObject implements IDibiDriver
 	public function getResultResource()
 	{
 		return $this->resultSet;
-	}
-
-
-
-	/********************* reflection ****************d*g**/
-
-
-
-	/**
-	 * Returns list of tables.
-	 * @return array
-	 */
-	public function getTables()
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all columns in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getColumns($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all indexes in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getIndexes($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all foreign keys in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getForeignKeys($table)
-	{
-		throw new NotImplementedException;
 	}
 
 }

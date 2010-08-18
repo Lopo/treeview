@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette,
+	Nette\String;
 
 
 
@@ -19,16 +24,15 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Application
  */
-class Route extends Object implements IRouter
+class Route extends Nette\Object implements IRouter
 {
 	const PRESENTER_KEY = 'presenter';
 	const MODULE_KEY = 'module';
 
 	/** flag */
 	const CASE_SENSITIVE = 256;
-	const FULL_META = 128;
 
-	/**#@+ @ignore internal uri type */
+	/**#@+ @internal uri type */
 	const HOST = 1;
 	const PATH = 2;
 	const RELATIVE = 3;
@@ -42,7 +46,7 @@ class Route extends Object implements IRouter
 	const FILTER_TABLE = 'filterTable';
 	/**#@-*/
 
-	/**#@+ @ignore internal fixity types - how to handle default value? {@link Route::$metadata} */
+	/**#@+ @internal fixity types - how to handle default value? {@link Route::$metadata} */
 	const OPTIONAL = 0;
 	const PATH_OPTIONAL = 1;
 	const CONSTANT = 2;
@@ -114,11 +118,6 @@ class Route extends Object implements IRouter
 	public function __construct($mask, array $metadata = array(), $flags = 0)
 	{
 		$this->flags = $flags | self::$defaultFlags;
-		if (!($this->flags & self::FULL_META)) {
-			foreach ($metadata as $name => $def) {
-				$metadata[$name] = array(self::VALUE => $def);
-			}
-		}
 		$this->setMask($mask, $metadata);
 	}
 
@@ -126,10 +125,10 @@ class Route extends Object implements IRouter
 
 	/**
 	 * Maps HTTP request to a PresenterRequest object.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @return PresenterRequest|NULL
 	 */
-	public function match(IHttpRequest $httpRequest)
+	public function match(Nette\Web\IHttpRequest $httpRequest)
 	{
 		// combine with precedence: mask (params in URL-path), fixity, query, (post,) defaults
 
@@ -154,7 +153,7 @@ class Route extends Object implements IRouter
 			$path = rtrim($path, '/') . '/';
 		}
 
-		if (!preg_match($this->re, $path, $matches)) {
+		if (!$matches = String::match($path, $this->re)) {
 			// stop, not matched
 			return NULL;
 		}
@@ -210,11 +209,11 @@ class Route extends Object implements IRouter
 
 		// 5) BUILD PresenterRequest
 		if (!isset($params[self::PRESENTER_KEY])) {
-			throw new InvalidStateException('Missing presenter in route definition.');
+			throw new \InvalidStateException('Missing presenter in route definition.');
 		}
 		if (isset($this->metadata[self::MODULE_KEY])) {
 			if (!isset($params[self::MODULE_KEY])) {
-				throw new InvalidStateException('Missing module in route definition.');
+				throw new \InvalidStateException('Missing module in route definition.');
 			}
 			$presenter = $params[self::MODULE_KEY] . ':' . $params[self::PRESENTER_KEY];
 			unset($params[self::MODULE_KEY], $params[self::PRESENTER_KEY]);
@@ -238,11 +237,11 @@ class Route extends Object implements IRouter
 
 	/**
 	 * Constructs absolute URL from PresenterRequest object.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @param  PresenterRequest
 	 * @return string|NULL
 	 */
-	public function constructUrl(PresenterRequest $appRequest, IHttpRequest $httpRequest)
+	public function constructUrl(PresenterRequest $appRequest, Nette\Web\IHttpRequest $httpRequest)
 	{
 		if ($this->flags & self::ONE_WAY) {
 			return NULL;
@@ -261,7 +260,9 @@ class Route extends Object implements IRouter
 			} else {
 				$a = strrpos($presenter, ':');
 			}
-			if ($a !== FALSE) {
+			if ($a === FALSE) {
+				$params[self::MODULE_KEY] = '';
+			} else {
 				$params[self::MODULE_KEY] = substr($presenter, 0, $a);
 				$params[self::PRESENTER_KEY] = substr($presenter, $a + 1);
 			}
@@ -388,36 +389,30 @@ class Route extends Object implements IRouter
 		}
 
 		foreach ($metadata as $name => $meta) {
-			if (array_key_exists(self::VALUE, $meta)) {
+			if (!is_array($meta)) {
+				$metadata[$name] = array(self::VALUE => $meta, 'fixity' => self::CONSTANT);
+
+			} elseif (array_key_exists(self::VALUE, $meta)) {
 				$metadata[$name]['fixity'] = self::CONSTANT;
 			}
 		}
 
 		// PARSE MASK
-		$parts = preg_split(
-			'/<([^># ]+) *([^>#]*)(#?[^>\[\]]*)>|(\[!?|\]|\s*\?.*)/',  // <parameter-name [pattern] [#class]> or [ or ] or ?...
-			$mask,
-			-1,
-			PREG_SPLIT_DELIM_CAPTURE
-		);
+		$parts = String::split($mask, '/<([^># ]+) *([^>#]*)(#?[^>\[\]]*)>|(\[!?|\]|\s*\?.*)/'); // <parameter-name [pattern] [#class]> or [ or ] or ?...
 
 		$this->xlat = array();
 		$i = count($parts) - 1;
 
 		// PARSE QUERY PART OF MASK
 		if (isset($parts[$i - 1]) && substr(ltrim($parts[$i - 1]), 0, 1) === '?') {
-			preg_match_all(
-				'/(?:([a-zA-Z0-9_.-]+)=)?<([^># ]+) *([^>#]*)(#?[^>]*)>/', // name=<parameter-name [pattern][#class]>
-				$parts[$i - 1],
-				$matches,
-				PREG_SET_ORDER
-			);
+			$matches = String::matchAll($parts[$i - 1], '/(?:([a-zA-Z0-9_.-]+)=)?<([^># ]+) *([^>#]*)(#?[^>]*)>/'); // name=<parameter-name [pattern][#class]>
+
 			foreach ($matches as $match) {
 				list(, $param, $name, $pattern, $class) = $match;  // $pattern is not used
 
 				if ($class !== '') {
 					if (!isset(self::$styles[$class])) {
-						throw new InvalidStateException("Parameter '$name' has '$class' flag, but Route::\$styles['$class'] is not set.");
+						throw new \InvalidStateException("Parameter '$name' has '$class' flag, but Route::\$styles['$class'] is not set.");
 					}
 					$meta = self::$styles[$class];
 
@@ -453,9 +448,6 @@ class Route extends Object implements IRouter
 		$autoOptional = array(0, 0); // strlen($re), count($sequence)
 		do {
 			array_unshift($sequence, $parts[$i]);
-			if (strpos($parts[$i], '{') !== FALSE) {
-				throw new DeprecatedException('Optional parts delimited using {...} are deprecated; use [...] instead.');
-			}
 			$re = preg_quote($parts[$i], '#') . $re;
 			if ($i === 0) break;
 			$i--;
@@ -464,7 +456,7 @@ class Route extends Object implements IRouter
 			if ($part === '[' || $part === ']' || $part === '[!') {
 				$brackets += $part[0] === '[' ? -1 : 1;
 				if ($brackets < 0) {
-					throw new InvalidArgumentException("Unexpected '$part' in mask '$mask'.");
+					throw new \InvalidArgumentException("Unexpected '$part' in mask '$mask'.");
 				}
 				array_unshift($sequence, $part);
 				$re = ($part[0] === '[' ? '(?:' : ')?') . $re;
@@ -485,13 +477,13 @@ class Route extends Object implements IRouter
 
 			// check name (limitation by regexp)
 			if (preg_match('#[^a-z0-9_-]#i', $name)) {
-				throw new InvalidArgumentException("Parameter name must be alphanumeric string due to limitations of PCRE, '$name' given.");
+				throw new \InvalidArgumentException("Parameter name must be alphanumeric string due to limitations of PCRE, '$name' given.");
 			}
 
 			// pattern, condition & metadata
 			if ($class !== '') {
 				if (!isset(self::$styles[$class])) {
-					throw new InvalidStateException("Parameter '$name' has '$class' flag, but Route::\$styles['$class'] is not set.");
+					throw new \InvalidStateException("Parameter '$name' has '$class' flag, but Route::\$styles['$class'] is not set.");
 				}
 				$meta = self::$styles[$class];
 
@@ -546,7 +538,7 @@ class Route extends Object implements IRouter
 		} while (TRUE);
 
 		if ($brackets) {
-			throw new InvalidArgumentException("Missing closing ']' in mask '$mask'.");
+			throw new \InvalidArgumentException("Missing closing ']' in mask '$mask'.");
 		}
 
 		$this->re = '#' . $re . '/?$#A' . ($this->flags & self::CASE_SENSITIVE ? '' : 'iu');
@@ -719,17 +711,17 @@ class Route extends Object implements IRouter
 	 * Creates new style.
 	 * @param  string  style name (#style, urlParameter, ?queryParameter)
 	 * @param  string  optional parent style name
-	 * @param  void
+	 * @return void
 	 */
 	public static function addStyle($style, $parent = '#')
 	{
 		if (isset(self::$styles[$style])) {
-			throw new InvalidArgumentException("Style '$style' already exists.");
+			throw new \InvalidArgumentException("Style '$style' already exists.");
 		}
 
 		if ($parent !== NULL) {
 			if (!isset(self::$styles[$parent])) {
-				throw new InvalidArgumentException("Parent style '$parent' doesn't exist.");
+				throw new \InvalidArgumentException("Parent style '$parent' doesn't exist.");
 			}
 			self::$styles[$style] = self::$styles[$parent];
 
@@ -745,12 +737,12 @@ class Route extends Object implements IRouter
 	 * @param  string  style name (#style, urlParameter, ?queryParameter)
 	 * @param  string  property name (Route::PATTERN, Route::FILTER_IN, Route::FILTER_OUT, Route::FILTER_TABLE)
 	 * @param  mixed   property value
-	 * @param  void
+	 * @return void
 	 */
 	public static function setStyleProperty($style, $key, $value)
 	{
 		if (!isset(self::$styles[$style])) {
-			throw new InvalidArgumentException("Style '$style' doesn't exist.");
+			throw new \InvalidArgumentException("Style '$style' doesn't exist.");
 		}
 		self::$styles[$style][$key] = $value;
 	}

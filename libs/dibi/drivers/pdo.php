@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -23,7 +23,7 @@
  *   - 'lazy' - if TRUE, connection will be established only when required
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
 class DibiPdoDriver extends DibiObject implements IDibiDriver
 {
@@ -57,9 +57,9 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	 */
 	public function connect(array &$config)
 	{
-		DibiConnection::alias($config, 'dsn');
+		$foo = & $config['dsn'];
+		$foo = & $config['options'];
 		DibiConnection::alias($config, 'resource', 'pdo');
-		DibiConnection::alias($config, 'options');
 
 		if ($config['resource'] instanceof PDO) {
 			$this->connection = $config['resource'];
@@ -231,25 +231,19 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 		case dibi::IDENTIFIER:
 			switch ($this->connection->getAttribute(PDO::ATTR_DRIVER_NAME)) {
 			case 'mysql':
-				$value = str_replace('`', '``', $value);
-				return '`' . str_replace('.', '`.`', $value) . '`';
+				return '`' . str_replace('`', '``', $value) . '`';
 
 			case 'pgsql':
-				$a = strrpos($value, '.');
-				if ($a === FALSE) {
-					return '"' . str_replace('"', '""', $value) . '"';
-				} else {
-					return substr($value, 0, $a) . '."' . str_replace('"', '""', substr($value, $a + 1)) . '"';
-				}
+				return '"' . str_replace('"', '""', $value) . '"';
 
 			case 'sqlite':
 			case 'sqlite2':
-				$value = strtr($value, '[]', '  ');
+				return '[' . strtr($value, '[]', '  ') . ']';
+
 			case 'odbc':
 			case 'oci': // TODO: not tested
 			case 'mssql':
-				$value = str_replace(array('[', ']'), array('[[', ']]'), $value);
-				return '[' . str_replace('.', '].[', $value) . ']';
+				return '[' . str_replace(array('[', ']'), array('[[', ']]'), $value) . ']';
 
 			default:
 				return $value;
@@ -348,7 +342,7 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	 */
 	public function getRowCount()
 	{
-		throw new NotSupportedException('Row count is not available for unbuffered queries.');
+		return $this->resultSet->rowCount();
 	}
 
 
@@ -403,6 +397,10 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 			if ($row === FALSE) {
 				throw new DibiDriverException('Driver does not support meta data.');
 			}
+			// PHP < 5.2.3 compatibility
+			// @see: http://php.net/manual/en/pdostatement.getcolumnmeta.php#pdostatement.getcolumnmeta.changelog
+			$row['table'] = isset($row['table']) ? $row['table'] : NULL;
+
 			$res[] = array(
 				'name' => $row['name'],
 				'table' => $row['table'],
@@ -423,57 +421,6 @@ class DibiPdoDriver extends DibiObject implements IDibiDriver
 	public function getResultResource()
 	{
 		return $this->resultSet;
-	}
-
-
-
-	/********************* reflection ****************d*g**/
-
-
-
-	/**
-	 * Returns list of tables.
-	 * @return array
-	 */
-	public function getTables()
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all columns in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getColumns($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all indexes in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getIndexes($table)
-	{
-		throw new NotImplementedException;
-	}
-
-
-
-	/**
-	 * Returns metadata for all foreign keys in a table.
-	 * @param  string
-	 * @return array
-	 */
-	public function getForeignKeys($table)
-	{
-		throw new NotImplementedException;
 	}
 
 }

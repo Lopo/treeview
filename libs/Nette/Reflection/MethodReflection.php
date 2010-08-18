@@ -4,11 +4,16 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Reflection
  */
+
+namespace Nette\Reflection;
+
+use Nette,
+	Nette\ObjectMixin;
 
 
 
@@ -18,17 +23,17 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Reflection
  */
-class MethodReflection extends ReflectionMethod
+class MethodReflection extends \ReflectionMethod
 {
 
 	/**
 	 * @param  string|object
 	 * @param  string
-	 * @return MethodReflection
+	 * @return Nette\Reflection\MethodReflection
 	 */
 	public static function from($class, $method)
 	{
-		return new self(is_object($class) ? get_class($class) : $class, $method);
+		return new static(is_object($class) ? get_class($class) : $class, $method);
 	}
 
 
@@ -79,6 +84,16 @@ class MethodReflection extends ReflectionMethod
 
 
 
+	/**
+	 * @return Nette\Callback
+	 */
+	public function getCallback()
+	{
+		return new Nette\Callback(parent::getDeclaringClass()->getName(), $this->getName());
+	}
+
+
+
 	public function __toString()
 	{
 		return 'Method ' . parent::getDeclaringClass()->getName() . '::' . $this->getName() . '()';
@@ -91,39 +106,32 @@ class MethodReflection extends ReflectionMethod
 
 
 	/**
-	 * @return MethodReflection
-	 * @ignore internal
-	 */
-	public static function import(ReflectionMethod $ref)
-	{
-		return new self($ref->getDeclaringClass()->getName(), $ref->getName());
-	}
-
-
-
-	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
 	public function getDeclaringClass()
 	{
-		return ClassReflection::import(parent::getDeclaringClass());
+		return new ClassReflection(parent::getDeclaringClass()->getName());
 	}
 
 
 
 	/**
-	 * @return ExtensionReflection
+	 * @return Nette\Reflection\ExtensionReflection
 	 */
 	public function getExtension()
 	{
-		return ($ref = parent::getExtension()) ? ExtensionReflection::import($ref) : NULL;
+		return ($name = $this->getExtensionName()) ? new ExtensionReflection($name) : NULL;
 	}
 
 
 
 	public function getParameters()
 	{
-		return array_map('MethodParameterReflection::import', parent::getParameters());
+		$me = array(parent::getDeclaringClass()->getName(), $this->getName());
+		foreach ($res = parent::getParameters() as $key => $val) {
+			$res[$key] = new ParameterReflection($me, $val->getName());
+		}
+		return $res;
 	}
 
 
@@ -174,11 +182,11 @@ class MethodReflection extends ReflectionMethod
 
 
 	/**
-	 * @return ClassReflection
+	 * @return Nette\Reflection\ClassReflection
 	 */
-	public function getReflection()
+	public /**/static/**/ function getReflection()
 	{
-		return new ClassReflection($this);
+		return new Nette\Reflection\ClassReflection(/*5.2*$this*//**/get_called_class()/**/);
 	}
 
 
@@ -213,7 +221,7 @@ class MethodReflection extends ReflectionMethod
 
 	public function __unset($name)
 	{
-		throw new MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
+		throw new \MemberAccessException("Cannot unset the property {$this->reflection->name}::\$$name.");
 	}
 
 }

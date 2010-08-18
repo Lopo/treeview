@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Mail
  */
+
+namespace Nette\Mail;
+
+use Nette;
 
 
 
@@ -22,7 +26,7 @@
  * @property   string $body
  * @property-read array $headers
  */
-class MailMimePart extends Object
+class MailMimePart extends Nette\Object
 {
 	/**#@+ encoding */
 	const ENCODING_BASE64 = 'base64';
@@ -31,7 +35,7 @@ class MailMimePart extends Object
 	const ENCODING_QUOTED_PRINTABLE = 'quoted-printable';
 	/**#@-*/
 
-	/**#@+ @ignore internal */
+	/**#@+ @internal */
 	const EOL = "\r\n";
 	const LINE_LENGTH = 76;
 	/**#@-*/
@@ -57,7 +61,7 @@ class MailMimePart extends Object
 	public function setHeader($name, $value, $append = FALSE)
 	{
 		if (!$name || preg_match('#[^a-z0-9-]#i', $name)) {
-			throw new InvalidArgumentException("Header name must be non-empty alphanumeric string, '$name' given.");
+			throw new \InvalidArgumentException("Header name must be non-empty alphanumeric string, '$name' given.");
 		}
 
 		if ($value == NULL) { // intentionally ==
@@ -72,17 +76,25 @@ class MailMimePart extends Object
 			}
 
 			foreach ($value as $email => $name) {
+				if ($name !== NULL && !Nette\String::checkEncoding($name)) {
+					throw new \InvalidArgumentException("Name is not valid UTF-8 string.");
+				}
+
 				if (!preg_match('#^[^@",\s]+@[^@",\s]+\.[a-z]{2,10}$#i', $email)) {
-					throw new InvalidArgumentException("Email address '$email' is not valid.");
+					throw new \InvalidArgumentException("Email address '$email' is not valid.");
 				}
 
 				if (preg_match('#[\r\n]#', $name)) {
-					throw new InvalidArgumentException("Name cannot contain the line separator.");
+					throw new \InvalidArgumentException("Name cannot contain the line separator.");
 				}
 				$tmp[$email] = $name;
 			}
 
 		} else {
+			$value = (string) $value;
+			if (!Nette\String::checkEncoding($value)) {
+				throw new \InvalidArgumentException("Header is not valid UTF-8 string.");
+			}
 			$this->headers[$name] = preg_replace('#[\r\n]+#', ' ', $value);
 		}
 		return $this;
@@ -121,9 +133,9 @@ class MailMimePart extends Object
 	 * @param  string
 	 * @return string
 	 */
-	public function getEncodedHeader($name, $charset = 'UTF-8')
+	public function getEncodedHeader($name)
 	{
-		$len = strlen($name) + 2;
+		$offset = strlen($name) + 2; // color + space
 
 		if (!isset($this->headers[$name])) {
 			return NULL;
@@ -132,23 +144,24 @@ class MailMimePart extends Object
 			$s = '';
 			foreach ($this->headers[$name] as $email => $name) {
 				if ($name != NULL) { // intentionally ==
-					$s .= self::encodeQuotedPrintableHeader(
+					$s .= self::encodeHeader(
 						strspn($name, '.,;<@>()[]"=?') ? '"' . addcslashes($name, '"\\') . '"' : $name,
-						$charset, $len
+						$offset
 					);
 					$email = " <$email>";
 				}
-				if ($len + strlen($email) + 1 > self::LINE_LENGTH) {
+				$email .= ',';
+				if ($s !== '' && $offset + strlen($email) > self::LINE_LENGTH) {
 					$s .= self::EOL . "\t";
-					$len = 1;
+					$offset = 1;
 				}
-				$s .= "$email,";
-				$len += strlen($email) + 1;
+				$s .= $email;
+				$offset += strlen($email);
 			}
-			return substr($s, 0, -1);
+			return substr($s, 0, -1); // last comma
 
 		} else {
-			return self::encodeQuotedPrintableHeader($this->headers[$name], $charset, $len);
+			return self::encodeHeader($this->headers[$name], $offset);
 		}
 	}
 
@@ -283,7 +296,7 @@ class MailMimePart extends Object
 				break;
 
 			default:
-				throw new InvalidStateException('Unknown encoding');
+				throw new \InvalidStateException('Unknown encoding');
 			}
 		}
 
@@ -311,44 +324,22 @@ class MailMimePart extends Object
 	 * @param  int
 	 * @return string
 	 */
-	private static function encodeQuotedPrintableHeader($s, $charset = 'UTF-8', & $len = 0)
+	private static function encodeHeader($s, & $offset = 0)
 	{
-		$range = '!"#$%&\'()*+,-./0123456789:;<>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^`abcdefghijklmnopqrstuvwxyz{|}'; // \x21-\x7E without \x3D \x3F \x5F
-
-		if (strspn($s, $range . "=? _\r\n\t") === strlen($s)) {
+		if (strspn($s, "!\"#$%&\'()*+,-./0123456789:;<>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^`abcdefghijklmnopqrstuvwxyz{|}=? _\r\n\t") === strlen($s)
+			&& ($offset + strlen($s) <= self::LINE_LENGTH)) {
+			$offset += strlen($s);
 			return $s;
 		}
 
-		$prefix = "=?$charset?Q?";
-		$pos = 0;
-		$len += strlen($prefix);
-		$o = $prefix;
-		$size = strlen($s);
-		while ($pos < $size) {
-			if ($l = strspn($s, $range, $pos)) {
-				while ($len + $l > self::LINE_LENGTH - 2) { // 2 = length of suffix ?=
-					$lx = self::LINE_LENGTH - $len - 2;
-					$o .= substr($s, $pos, $lx) . '?=' . self::EOL . "\t" . $prefix;
-					$pos += $lx;
-					$l -= $lx;
-					$len = strlen($prefix) + 1;
-				}
-				$o .= substr($s, $pos, $l);
-				$len += $l;
-				$pos += $l;
+		$o = str_replace("\n ", "\n\t", substr(iconv_mime_encode(str_repeat(' ', $offset), $s, array(
+			'scheme' => 'B', // Q is broken
+			'input-charset' => 'UTF-8',
+			'output-charset' => 'UTF-8',
+		)), $offset + 2));
 
-			} else {
-				$len += 3;
-				// \xC0 tests UTF-8 character boudnary; 9 is reserved space for 4bytes UTF-8 character
-				if (($s[$pos] & "\xC0") !== "\x80" && $len > self::LINE_LENGTH - 2 - 9) {
-					$o .= '?=' . self::EOL . "\t" . $prefix;
-					$len = strlen($prefix) + 1 + 3;
-				}
-				$o .= '=' . strtoupper(bin2hex($s[$pos]));
-				$pos++;
-			}
-		}
-		return $o . '?=';
+		$offset = strlen($o) - strrpos($o, "\n");
+		return $o;
 	}
 
 
@@ -357,7 +348,7 @@ class MailMimePart extends Object
 	 * Converts a 8 bit string to a quoted-printable string.
 	 * @param  string
 	 * @return string
-	 */
+	 *//*5.2*
 	public static function encodeQuotedPrintable($s)
 	{
 		$range = '!"#$%&\'()*+,-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}'; // \x21-\x7E without \x3D
@@ -389,6 +380,6 @@ class MailMimePart extends Object
 			}
 		}
 		return rtrim($o, '=' . self::EOL);
-	}
+	}*/
 
 }

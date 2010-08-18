@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -70,7 +74,7 @@ class MultiSelectBox extends SelectBox
 	 */
 	public function getSelectedItem()
 	{
-		if (!$this->useKeys) {
+		if (!$this->areKeysUsed()) {
 			return $this->getValue();
 
 		} else {
@@ -85,7 +89,7 @@ class MultiSelectBox extends SelectBox
 
 
 	/**
-	 * Returns name of control within a Form & INamingContainer scope.
+	 * Returns HTML name of control.
 	 * @return string
 	 */
 	public function getHtmlName()
@@ -97,7 +101,7 @@ class MultiSelectBox extends SelectBox
 
 	/**
 	 * Generates control's HTML element.
-	 * @return Html
+	 * @return Nette\Web\Html
 	 */
 	public function getControl()
 	{

@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Security
  */
+
+namespace Nette\Security;
+
+use Nette;
 
 
 
@@ -21,7 +25,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Security
  */
-class Permission extends Object implements IAuthorizator
+class Permission extends Nette\Object implements IAuthorizator
 {
 	/** @var array  Role storage */
 	private $roles = array();
@@ -66,8 +70,8 @@ class Permission extends Object implements IAuthorizator
 	 *
 	 * @param  string
 	 * @param  string|array
-	 * @throws InvalidArgumentException
-	 * @throws InvalidStateException
+	 * @throws \InvalidArgumentException
+	 * @throws \InvalidStateException
 	 * @return Permission  provides a fluent interface
 	 */
 	public function addRole($role, $parents = NULL)
@@ -75,7 +79,7 @@ class Permission extends Object implements IAuthorizator
 		$this->checkRole($role, FALSE);
 
 		if (isset($this->roles[$role])) {
-			throw new InvalidStateException("Role '$role' already exists in the list.");
+			throw new \InvalidStateException("Role '$role' already exists in the list.");
 		}
 
 		$roleParents = array();
@@ -119,16 +123,16 @@ class Permission extends Object implements IAuthorizator
 	 * Checks whether Role is valid and exists in the list.
 	 * @param  string
 	 * @param  bool
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return void
 	 */
 	private function checkRole($role, $need = TRUE)
 	{
 		if (!is_string($role) || $role === '') {
-			throw new InvalidArgumentException("Role must be a non-empty string.");
+			throw new \InvalidArgumentException("Role must be a non-empty string.");
 
 		} elseif ($need && !isset($this->roles[$role])) {
-			throw new InvalidStateException("Role '$role' does not exist.");
+			throw new \InvalidStateException("Role '$role' does not exist.");
 		}
 	}
 
@@ -165,7 +169,7 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string
 	 * @param  string
 	 * @param  boolean
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return bool
 	 */
 	public function roleInheritsFrom($role, $inherit, $onlyParents = FALSE)
@@ -194,7 +198,7 @@ class Permission extends Object implements IAuthorizator
 	 * Removes the Role from the list.
 	 *
 	 * @param  string
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return Permission  provides a fluent interface
 	 */
 	public function removeRole($role)
@@ -262,8 +266,8 @@ class Permission extends Object implements IAuthorizator
 	 *
 	 * @param  string
 	 * @param  string
-	 * @throws InvalidArgumentException
-	 * @throws InvalidStateException
+	 * @throws \InvalidArgumentException
+	 * @throws \InvalidStateException
 	 * @return Permission  provides a fluent interface
 	 */
 	public function addResource($resource, $parent = NULL)
@@ -271,7 +275,7 @@ class Permission extends Object implements IAuthorizator
 		$this->checkResource($resource, FALSE);
 
 		if (isset($this->resources[$resource])) {
-			throw new InvalidStateException("Resource '$resource' already exists in the list.");
+			throw new \InvalidStateException("Resource '$resource' already exists in the list.");
 		}
 
 		if ($parent !== NULL) {
@@ -306,16 +310,16 @@ class Permission extends Object implements IAuthorizator
 	 * Checks whether Resource is valid and exists in the list.
 	 * @param  string
 	 * @param  bool
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return void
 	 */
 	private function checkResource($resource, $need = TRUE)
 	{
 		if (!is_string($resource) || $resource === '') {
-			throw new InvalidArgumentException("Resource must be a non-empty string.");
+			throw new \InvalidArgumentException("Resource must be a non-empty string.");
 
 		} elseif ($need && !isset($this->resources[$resource])) {
-			throw new InvalidStateException("Resource '$resource' does not exist.");
+			throw new \InvalidStateException("Resource '$resource' does not exist.");
 		}
 	}
 
@@ -332,7 +336,7 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string
 	 * @param  string
 	 * @param  boolean
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return bool
 	 */
 	public function resourceInheritsFrom($resource, $inherit, $onlyParent = FALSE)
@@ -368,7 +372,7 @@ class Permission extends Object implements IAuthorizator
 	 * Removes a Resource and all of its children.
 	 *
 	 * @param  string
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return Permission  provides a fluent interface
 	 */
 	public function removeResource($resource)
@@ -444,10 +448,10 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string|array|Permission::ALL  roles
 	 * @param  string|array|Permission::ALL  resources
 	 * @param  string|array|Permission::ALL  privileges
-	 * @param  IPermissionAssertion  assertion
+	 * @param  callback    assertion
 	 * @return Permission  provides a fluent interface
 	 */
-	public function allow($roles = self::ALL, $resources = self::ALL, $privileges = self::ALL, IPermissionAssertion $assertion = NULL)
+	public function allow($roles = self::ALL, $resources = self::ALL, $privileges = self::ALL, $assertion = NULL)
 	{
 		$this->setRule(TRUE, self::ALLOW, $roles, $resources, $privileges, $assertion);
 		return $this;
@@ -473,10 +477,10 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string|array|Permission::ALL  roles
 	 * @param  string|array|Permission::ALL  resources
 	 * @param  string|array|Permission::ALL  privileges
-	 * @param  IPermissionAssertion  assertion
+	 * @param  callback    assertion
 	 * @return Permission  provides a fluent interface
 	 */
-	public function deny($roles = self::ALL, $resources = self::ALL, $privileges = self::ALL, IPermissionAssertion $assertion = NULL)
+	public function deny($roles = self::ALL, $resources = self::ALL, $privileges = self::ALL, $assertion = NULL)
 	{
 		$this->setRule(TRUE, self::DENY, $roles, $resources, $privileges, $assertion);
 		return $this;
@@ -528,11 +532,11 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string|array|Permission::ALL  roles
 	 * @param  string|array|Permission::ALL  resources
 	 * @param  string|array|Permission::ALL  privileges
-	 * @param  IPermissionAssertion assertion
-	 * @throws InvalidStateException
+	 * @param  callback    assertion
+	 * @throws \InvalidStateException
 	 * @return Permission  provides a fluent interface
 	 */
-	protected function setRule($toAdd, $type, $roles, $resources, $privileges, IPermissionAssertion $assertion = NULL)
+	protected function setRule($toAdd, $type, $roles, $resources, $privileges, $assertion = NULL)
 	{
 		// ensure that all specified Roles exist; normalize input to array of Roles or NULL
 		if ($roles === self::ALL) {
@@ -570,6 +574,7 @@ class Permission extends Object implements IAuthorizator
 			$privileges = array($privileges);
 		}
 
+		$assertion = $assertion ? callback($assertion) : NULL;
 
 		if ($toAdd) { // add to the rules
 			foreach ($resources as $resource) {
@@ -654,7 +659,7 @@ class Permission extends Object implements IAuthorizator
 	 * @param  string|Permission::ALL|IRole  role
 	 * @param  string|Permission::ALL|IResource  resource
 	 * @param  string|Permission::ALL  privilege
-	 * @throws InvalidStateException
+	 * @throws \InvalidStateException
 	 * @return bool
 	 */
 	public function isAllowed($role = self::ALL, $resource = self::ALL, $privilege = self::ALL)
@@ -733,7 +738,7 @@ class Permission extends Object implements IAuthorizator
 
 
 	/**
-	 * Returns real currently queried Role. Use by {@link IPermissionAssertion::asert()}.
+	 * Returns real currently queried Role. Use by assertion.
 	 * @return mixed
 	 */
 	public function getQueriedRole()
@@ -744,7 +749,7 @@ class Permission extends Object implements IAuthorizator
 
 
 	/**
-	 * Returns real currently queried Resource. Use by {@link IPermissionAssertion::asert()}.
+	 * Returns real currently queried Resource. Use by assertion.
 	 * @return mixed
 	 */
 	public function getQueriedResource()
@@ -933,7 +938,7 @@ class Permission extends Object implements IAuthorizator
 		}
 
 		// check assertion if necessary
-		if ($rule['assert'] === NULL || $rule['assert']->assert($this, $role, $resource, $privilege)) {
+		if ($rule['assert'] === NULL || $rule['assert']->__invoke($this, $role, $resource, $privilege)) {
 			return $rule['type'];
 
 		} elseif ($resource !== self::ALL || $role !== self::ALL || $privilege !== self::ALL) {

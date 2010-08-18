@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -30,9 +30,9 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiMySqliDriver extends DibiObject implements IDibiDriver
+class DibiMySqliDriver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	const ERROR_ACCESS_DENIED = 1045;
 	const ERROR_DUPLICATE_ENTRY = 1062;
@@ -68,8 +68,8 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 	 */
 	public function connect(array &$config)
 	{
-		DibiConnection::alias($config, 'options');
-		DibiConnection::alias($config, 'database');
+		$foo = & $config['options'];
+		$foo = & $config['database'];
 
 		if (isset($config['resource'])) {
 			$this->connection = $config['resource'];
@@ -106,18 +106,15 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 				$ok = @mysqli_set_charset($this->connection, $config['charset']); // intentionally @
 			}
 			if (!$ok) {
-				$ok = @mysqli_query($this->connection, "SET NAMES '$config[charset]'"); // intentionally @
-				if (!$ok) {
-					throw new DibiDriverException(mysqli_error($this->connection), mysqli_errno($this->connection));
-				}
+				$this->query("SET NAMES '$config[charset]'");
 			}
 		}
 
 		if (isset($config['sqlmode'])) {
-			if (!@mysqli_query($this->connection, "SET sql_mode='$config[sqlmode]'")) { // intentionally @
-				throw new DibiDriverException(mysqli_error($this->connection), mysqli_errno($this->connection));
-			}
+			$this->query("SET sql_mode='$config[sqlmode]'");
 		}
+
+		$this->query("SET time_zone='" . date('P') . "'");
 
 		$this->buffered = empty($config['unbuffered']);
 	}
@@ -162,6 +159,8 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 	{
 		$res = array();
 		preg_match_all('#(.+?): +(\d+) *#', mysqli_info($this->connection), $matches, PREG_SET_ORDER);
+		if (preg_last_error()) throw new PcreException;
+
 		foreach ($matches as $m) {
 			$res[$m[1]] = (int) $m[2];
 		}
@@ -263,8 +262,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 			return "_binary'" . mysqli_real_escape_string($this->connection, $value) . "'";
 
 		case dibi::IDENTIFIER:
-			$value = str_replace('`', '``', $value);
-			return '`' . str_replace('.', '`.`', $value) . '`';
+			return '`' . str_replace('`', '``', $value) . '`';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -420,7 +418,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ****************d*g**/
+	/********************* IDibiReflector ****************d*g**/
 
 
 
@@ -471,6 +469,7 @@ class DibiMySqliDriver extends DibiObject implements IDibiDriver
 				'table' => $table,
 				'nativetype' => strtoupper($type[0]),
 				'size' => isset($type[1]) ? (int) $type[1] : NULL,
+				'unsigned' => (bool) strstr('unsigned', $row['Type']),
 				'nullable' => $row['Null'] === 'YES',
 				'default' => $row['Default'],
 				'autoincrement' => $row['Extra'] === 'auto_increment',

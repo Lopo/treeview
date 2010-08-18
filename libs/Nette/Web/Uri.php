@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Web
  */
+
+namespace Nette\Web;
+
+use Nette;
 
 
 
@@ -16,14 +20,14 @@
  * URI Syntax (RFC 3986).
  *
  * <pre>
- * http://user:password@nettephp.com:8042/en/manual.html?name=param#fragment
+ * http://user:password@nette.org:8042/en/manual.html?name=param#fragment
  * \__/^^^\_____________________________/\_____________/^\________/^\______/
  *   |                    |                     |            |         |
  * scheme             authority               path         query    fragment
  * </pre>
  *
  * - authority:   [user[:password]@]host[:port]
- * - hostUri:     http://user:password@nettephp.com:8042
+ * - hostUri:     http://user:password@nette.org:8042
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Web
@@ -40,7 +44,7 @@
  * @property-read string $authority
  * @property-read string $hostUri
  */
-class Uri extends FreezableObject
+class Uri extends Nette\FreezableObject
 {
 	/** @var array */
 	public static $defaultPorts = array(
@@ -84,9 +88,9 @@ class Uri extends FreezableObject
 	public function __construct($uri = NULL)
 	{
 		if (is_string($uri)) {
-			$parts = @parse_url($uri); // intentionally @
+			$parts = @parse_url($uri); // @ - is escalated to exception
 			if ($parts === FALSE) {
-				throw new InvalidArgumentException("Malformed or unsupported URI '$uri'.");
+				throw new \InvalidArgumentException("Malformed or unsupported URI '$uri'.");
 			}
 
 			foreach ($parts as $key => $val) {
@@ -98,8 +102,8 @@ class Uri extends FreezableObject
 			}
 
 		} elseif ($uri instanceof self) {
-			foreach ($uri as $key => $val) {
-				$this->$key = $val;
+			foreach ($this as $key => $val) {
+				$this->$key = $uri->$key;
 			}
 		}
 	}
@@ -175,26 +179,6 @@ class Uri extends FreezableObject
 	 * @return string
 	 */
 	public function getPassword()
-	{
-		return $this->pass;
-	}
-
-
-
-	/**
-	 * @deprecated
-	 */
-	public function setPass($value)
-	{
-		$this->setPassword($value);
-	}
-
-
-
-	/**
-	 * @deprecated
-	 */
-	public function getPass()
 	{
 		return $this->pass;
 	}
@@ -404,8 +388,11 @@ class Uri extends FreezableObject
 		}
 
 		// compare query strings
-		$part = self::unescape(strtr((string) strtok('?#'), '+', ' '), '%&;=+');
-		return $part === $this->query;
+		$part = preg_split('#[&;]#', self::unescape(strtr((string) strtok('?#'), '+', ' '), '%&;=+'));
+		sort($part);
+		$query = preg_split('#[&;]#', $this->query);
+		sort($query);
+		return $part === $query;
 	}
 
 

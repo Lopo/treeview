@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -23,9 +23,9 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiOdbcDriver extends DibiObject implements IDibiDriver
+class DibiOdbcDriver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -179,6 +179,17 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver
 
 
 	/**
+	 * Is in transaction?
+	 * @return bool
+	 */
+	public function inTransaction()
+	{
+		return !odbc_autocommit($this->connection);
+	}
+
+
+
+	/**
 	 * Returns the connection resource.
 	 * @return mixed
 	 */
@@ -208,8 +219,7 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver
 			return "'" . str_replace("'", "''", $value) . "'";
 
 		case dibi::IDENTIFIER:
-			$value = str_replace(array('[', ']'), array('[[', ']]'), $value);
-			return '[' . str_replace('.', '].[', $value) . ']';
+			return '[' . str_replace(array('[', ']'), array('[[', ']]'), $value) . ']';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -358,7 +368,7 @@ class DibiOdbcDriver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ****************d*g**/
+	/********************* IDibiReflector ****************d*g**/
 
 
 

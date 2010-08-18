@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -25,9 +25,9 @@
  *
  * @author     Tomáš Kraina, Roman Sklenář
  * @copyright  Copyright (c) 2010
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiFirebirdDriver extends DibiObject implements IDibiDriver
+class DibiFirebirdDriver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	const ERROR_EXCEPTION_THROWN = -836;
 
@@ -156,7 +156,6 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver
 	public function getInsertId($sequence)
 	{
 		return ibase_gen_id($sequence, 0, $this->connection);
-		//throw new NotSupportedException('Firebird/InterBase does not support autoincrementing.');
 	}
 
 
@@ -216,6 +215,17 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver
 		}
 
 		$this->inTransaction = FALSE;
+	}
+
+
+
+	/**
+	 * Is in transaction?
+	 * @return bool
+	 */
+	public function inTransaction()
+	{
+		return $this->inTransaction;
 	}
 
 
@@ -390,7 +400,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ********************/
+	/********************* IDibiReflector ********************/
 
 
 
@@ -794,7 +804,7 @@ class DibiFirebirdDriver extends DibiObject implements IDibiDriver
  *
  * @author     Roman Sklenář
  * @copyright  Copyright (c) 2010
- * @package    dibi
+ * @package    dibi\drivers
  */
 class DibiProcedureException extends DibiException
 {

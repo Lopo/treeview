@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -18,7 +22,7 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Forms
  */
-final class Rule extends Object
+final class Rule extends Nette\Object
 {
 	/** type */
 	const CONDITION = 1;
@@ -28,9 +32,6 @@ final class Rule extends Object
 
 	/** type */
 	const FILTER = 3;
-
-	/** type */
-	const TERMINATOR = 4;
 
 	/** @var IFormControl */
 	public $control;
@@ -49,9 +50,6 @@ final class Rule extends Object
 
 	/** @var string (only for VALIDATOR type) */
 	public $message;
-
-	/** @var bool (only for VALIDATOR type) */
-	public $breakOnFailure = TRUE;
 
 	/** @var Rules (only for CONDITION type)  */
 	public $subRules;

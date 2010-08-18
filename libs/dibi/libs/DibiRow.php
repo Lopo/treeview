@@ -18,44 +18,52 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
  */
-class DibiRow extends ArrayObject
+class DibiRow implements ArrayAccess, IteratorAggregate, Countable
 {
 
-	/**
-	 * @param  array
-	 */
 	public function __construct($arr)
 	{
-		parent::__construct($arr, 2);
+		foreach ($arr as $k => $v) $this->$k = $v;
+	}
+
+
+
+	public function toArray()
+	{
+		return (array) $this;
 	}
 
 
 
 	/**
-	 * Converts value to date-time format.
+	 * Converts value to DateTime object.
 	 * @param  string key
-	 * @param  string format (TRUE means DateTime object)
-	 * @return mixed
+	 * @param  string format
+	 * @return DateTime
 	 */
-	public function asDate($key, $format = NULL)
+	public function asDateTime($key, $format = NULL)
 	{
 		$time = $this[$key];
 		if ((int) $time === 0) { // '', NULL, FALSE, '0000-00-00', ...
 			return NULL;
-
-		} elseif ($format === NULL) { // return timestamp (default)
-			return is_numeric($time) ? (int) $time : strtotime($time);
-
-		} elseif ($format === TRUE) { // return DateTime object
-			return new DateTime(is_numeric($time) ? date('Y-m-d H:i:s', $time) : $time);
-
-		} elseif (is_numeric($time)) { // single timestamp
-			return date($format, $time);
-
-		} else {
-			$time = new DateTime($time);
-			return $time->format($format);
 		}
+		$dt = new DateTime53(is_numeric($time) ? date('Y-m-d H:i:s', $time) : $time);
+		return $format === NULL ? $dt : $dt->format($format);
+	}
+
+
+
+	/**
+	 * Converts value to UNIX timestamp.
+	 * @param  string key
+	 * @return int
+	 */
+	public function asTimestamp($key)
+	{
+		$time = $this[$key];
+		return (int) $time === 0 // '', NULL, FALSE, '0000-00-00', ...
+			? NULL
+			: (is_numeric($time) ? (int) $time : strtotime($time));
 	}
 
 
@@ -78,13 +86,60 @@ class DibiRow extends ArrayObject
 
 
 
-	/**
-	 * PHP < 5.3 workaround
-	 * @return void
-	 */
-	public function __wakeup()
+	/** @deprecated */
+	public function asDate($key, $format = NULL)
 	{
-		$this->setFlags(2);
+		if ($format === NULL) {
+			return $this->asTimestamp($key);
+		} else {
+			return $this->asDateTime($key, $format === TRUE ? NULL : $format);
+		}
+	}
+
+
+
+	/********************* interfaces ArrayAccess, Countable & IteratorAggregate ****************d*g**/
+
+
+
+	final public function count()
+	{
+		return count((array) $this);
+	}
+
+
+
+	final public function getIterator()
+	{
+		return new ArrayIterator($this);
+	}
+
+
+
+	final public function offsetSet($nm, $val)
+	{
+		$this->$nm = $val;
+	}
+
+
+
+	final public function offsetGet($nm)
+	{
+		return $this->$nm;
+	}
+
+
+
+	final public function offsetExists($nm)
+	{
+		return isset($this->$nm);
+	}
+
+
+
+	final public function offsetUnset($nm)
+	{
+		unset($this->$nm);
 	}
 
 }

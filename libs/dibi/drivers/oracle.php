@@ -7,7 +7,7 @@
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @license    http://dibiphp.com/license  dibi license
  * @link       http://dibiphp.com
- * @package    dibi
+ * @package    dibi\drivers
  */
 
 
@@ -25,9 +25,9 @@
  *   - 'resource' - connection resource (optional)
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
- * @package    dibi
+ * @package    dibi\drivers
  */
-class DibiOracleDriver extends DibiObject implements IDibiDriver
+class DibiOracleDriver extends DibiObject implements IDibiDriver, IDibiReflector
 {
 	/** @var resource  Connection resource */
 	private $connection;
@@ -62,7 +62,7 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver
 	 */
 	public function connect(array &$config)
 	{
-		DibiConnection::alias($config, 'charset');
+		$foo = & $config['charset'];
 		$this->fmtDate = isset($config['formatDate']) ? $config['formatDate'] : 'U';
 		$this->fmtDateTime = isset($config['formatDateTime']) ? $config['formatDateTime'] : 'U';
 
@@ -135,7 +135,7 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver
 	{
 		$this->query("SELECT $sequence.CURRVAL AS ID FROM DUAL");
 		$row = $this->fetch(TRUE);
-		return isset($row['ID']) : (int) $row['ID'] : FALSE;
+		return isset($row['ID']) ? (int) $row['ID'] : FALSE;
 	}
 
 
@@ -217,8 +217,7 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver
 
 		case dibi::IDENTIFIER:
 			// @see http://download.oracle.com/docs/cd/B10500_01/server.920/a96540/sql_elements9a.htm
-			$value = str_replace('"', '""', $value);
-			return '"' . str_replace('.', '"."', $value) . '"';
+			return '"' . str_replace('"', '""', $value) . '"';
 
 		case dibi::BOOL:
 			return $value ? 1 : 0;
@@ -357,7 +356,7 @@ class DibiOracleDriver extends DibiObject implements IDibiDriver
 
 
 
-	/********************* reflection ****************d*g**/
+	/********************* IDibiReflector ****************d*g**/
 
 
 

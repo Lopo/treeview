@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Config
  */
+
+namespace Nette\Config;
+
+use Nette;
 
 
 
@@ -18,16 +22,11 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Config
  */
-class Config extends Hashtable
+class Config implements \ArrayAccess, \IteratorAggregate
 {
-	/**#@+ flag */
-	const READONLY = 1;
-	const EXPAND = 2;
-	/**#@-*/
-
 	/** @var array */
 	private static $extensions = array(
-		'ini' => 'ConfigAdapterIni',
+		'ini' => 'Nette\Config\ConfigAdapterIni',
 	);
 
 
@@ -41,11 +40,11 @@ class Config extends Hashtable
 	public static function registerExtension($extension, $class)
 	{
 		if (!class_exists($class)) {
-			throw new InvalidArgumentException("Class '$class' was not found.");
+			throw new \InvalidArgumentException("Class '$class' was not found.");
 		}
 
-		if (!ClassReflection::from($class)->implementsInterface('IConfigAdapter')) {
-			throw new InvalidArgumentException("Configuration adapter '$class' is not Nette\\Config\\IConfigAdapter implementor.");
+		if (!Nette\Reflection\ClassReflection::from($class)->implementsInterface('Nette\Config\IConfigAdapter')) {
+			throw new \InvalidArgumentException("Configuration adapter '$class' is not Nette\\Config\\IConfigAdapter implementor.");
 		}
 
 		self::$extensions[strtolower($extension)] = $class;
@@ -57,18 +56,17 @@ class Config extends Hashtable
 	 * Creates new configuration object from file.
 	 * @param  string  file name
 	 * @param  string  section to load
-	 * @param  int     flags (readOnly, autoexpand variables)
 	 * @return Config
 	 */
-	public static function fromFile($file, $section = NULL, $flags = self::READONLY)
+	public static function fromFile($file, $section = NULL)
 	{
 		$extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 		if (isset(self::$extensions[$extension])) {
 			$arr = call_user_func(array(self::$extensions[$extension], 'load'), $file, $section);
-			return new self($arr, $flags);
+			return new static($arr);
 
 		} else {
-			throw new InvalidArgumentException("Unknown file extension '$file'.");
+			throw new \InvalidArgumentException("Unknown file extension '$file'.");
 		}
 	}
 
@@ -76,20 +74,11 @@ class Config extends Hashtable
 
 	/**
 	 * @param  array to wrap
-	 * @throws InvalidArgumentException
 	 */
-	public function __construct($arr = NULL, $flags = self::READONLY)
+	public function __construct($arr = NULL)
 	{
-		parent::__construct($arr);
-
-		if ($arr !== NULL) {
-			if ($flags & self::EXPAND) {
-				$this->expand();
-			}
-
-			if ($flags & self::READONLY) {
-				$this->freeze();
-			}
+		foreach ((array) $arr as $k => $v) {
+			$this->$k = is_array($v) ? new static($v) : $v;
 		}
 	}
 
@@ -108,7 +97,7 @@ class Config extends Hashtable
 			return call_user_func(array(self::$extensions[$extension], 'save'), $this, $file, $section);
 
 		} else {
-			throw new InvalidArgumentException("Unknown file extension '$file'.");
+			throw new \InvalidArgumentException("Unknown file extension '$file'.");
 		}
 	}
 
@@ -118,149 +107,126 @@ class Config extends Hashtable
 
 
 
-	/**
-	 * Expand all variables.
-	 * @return void
-	 */
-	public function expand()
+	public function __set($key, $value)
 	{
-		$this->updating();
+		if (!is_scalar($key)) {
+			throw new \InvalidArgumentException("Key must be either a string or an integer.");
 
-		$data = $this->getArrayCopy();
-		foreach ($data as $key => $val) {
-			if (is_string($val)) {
-				$data[$key] = Environment::expand($val);
-			} elseif ($val instanceof self) {
-				$val->expand();
-			}
+		} elseif ($value === NULL) {
+			unset($this->$key);
+
+		} else {
+			$this->$key = $value;
 		}
-		$this->setArray($data);
+	}
+
+
+
+	public function &__get($key)
+	{
+		if (!is_scalar($key)) {
+			throw new \InvalidArgumentException("Key must be either a string or an integer.");
+		}
+		return $this->$key;
+	}
+
+
+
+	public function __isset($key)
+	{
+		return FALSE;
+	}
+
+
+
+	public function __unset($key)
+	{
 	}
 
 
 
 	/**
-	 * Import from array or any traversable object.
-	 * @param  array|\Traversable
+	 * Replaces or appends a item.
+	 * @param  mixed
+	 * @param  mixed
 	 * @return void
-	 * @throws InvalidArgumentException
 	 */
-	public function import($arr)
+	public function offsetSet($key, $value)
 	{
-		$this->updating();
-
-		foreach ($arr as $key => $val) {
-			if (is_array($val)) {
-				$arr[$key] = $obj = clone $this;
-				$obj->import($val);
-			}
-		}
-		$this->setArray($arr);
+		$this->__set($key, $value);
 	}
 
 
 
 	/**
-	 * Returns an array containing all of the elements in this collection.
+	 * Returns a item.
+	 * @param  mixed
+	 * @return mixed
+	 */
+	public function offsetGet($key)
+	{
+		if (!is_scalar($key)) {
+			throw new \InvalidArgumentException("Key must be either a string or an integer.");
+
+		} elseif (!isset($this->$key)) {
+			return NULL;
+		}
+		return $this->$key;
+	}
+
+
+
+	/**
+	 * Determines whether a item exists.
+	 * @param  mixed
+	 * @return bool
+	 */
+	public function offsetExists($key)
+	{
+		if (!is_scalar($key)) {
+			throw new \InvalidArgumentException("Key must be either a string or an integer.");
+		}
+		return isset($this->$key);
+	}
+
+
+
+	/**
+	 * Removes a item.
+	 * @param  mixed
+	 * @return void
+	 */
+	public function offsetUnset($key)
+	{
+		if (!is_scalar($key)) {
+			throw new \InvalidArgumentException("Key must be either a string or an integer.");
+		}
+		unset($this->$key);
+	}
+
+
+
+	/**
+	 * Returns an iterator over all items.
+	 * @return \RecursiveIterator
+	 */
+	public function getIterator()
+	{
+		return new Nette\GenericRecursiveIterator(new \ArrayIterator($this));
+	}
+
+
+
+	/**
 	 * @return array
 	 */
 	public function toArray()
 	{
-		$res = $this->getArrayCopy();
-		foreach ($res as $key => $val) {
-			if ($val instanceof self) {
-				$res[$key] = $val->toArray();
-			}
+		$arr = array();
+		foreach ($this as $k => $v) {
+			$arr[$k] = $v instanceof self ? $v->toArray() : $v;
 		}
-		return $res;
-	}
-
-
-
-	/**
-	 * Makes the object unmodifiable.
-	 * @return void
-	 */
-	public function freeze()
-	{
-		parent::freeze();
-		foreach ($this->getArrayCopy() as $val) {
-			if ($val instanceof self) {
-				$val->freeze();
-			}
-		}
-	}
-
-
-
-	/**
-	 * Creates a modifiable clone of the object.
-	 * @return void
-	 */
-	public function __clone()
-	{
-		parent::__clone();
-		$data = $this->getArrayCopy();
-		foreach ($data as $key => $val) {
-			if ($val instanceof self) {
-				$data[$key] = clone $val;
-			}
-		}
-		$this->setArray($data);
-	}
-
-
-
-	/********************* data access via overloading ****************d*g**/
-
-
-
-	/**
-	 * Returns item. Do not call directly.
-	 * @param  int index
-	 * @return mixed
-	 */
-	public function &__get($key)
-	{
-		$val = $this->offsetGet($key);
-		return $val;
-	}
-
-
-
-	/**
-	 * Inserts (replaces) item. Do not call directly.
-	 * @param  int index
-	 * @param  object
-	 * @return void
-	 */
-	public function __set($key, $item)
-	{
-		$this->offsetSet($key, $item);
-	}
-
-
-
-	/**
-	 * Exists item?
-	 * @param  string  name
-	 * @return bool
-	 */
-	public function __isset($key)
-	{
-		return $this->offsetExists($key);
-	}
-
-
-
-	/**
-	 * Removes the element at the specified position in this list.
-	 * @param  string  name
-	 * @return void
-	 */
-	public function __unset($key)
-	{
-		$this->offsetUnset($key);
+		return $arr;
 	}
 
 }

@@ -17,6 +17,14 @@
  *
  * @copyright  Copyright (c) 2005, 2010 David Grudl
  * @package    dibi
+ *
+ * @property-read bool $connected
+ * @property-read mixed $config
+ * @property-read IDibiDriver $driver
+ * @property-read int $affectedRows
+ * @property-read int $insertId
+ * @property IDibiProfiler $profiler
+ * @property-read DibiDatabaseInfo $databaseInfo
  */
 class DibiConnection extends DibiObject
 {
@@ -36,30 +44,32 @@ class DibiConnection extends DibiObject
 
 	/**
 	 * Creates object and (optionally) connects to a database.
-	 * @param  array|string|ArrayObject connection parameters
-	 * @param  string       connection name
+	 * @param  mixed   connection parameters
+	 * @param  string  connection name
 	 * @throws DibiException
 	 */
 	public function __construct($config, $name = NULL)
 	{
-		if (class_exists(/*Nette\*/'Debug', FALSE)) {
-			/*Nette\*/Debug::addColophon(array('dibi', 'getColophon'));
-		}
-
 		// DSN string
 		if (is_string($config)) {
 			parse_str($config, $config);
 
-		} elseif ($config instanceof ArrayObject) {
-			$config = (array) $config;
+		} elseif ($config instanceof Traversable) {
+			$tmp = array();
+			foreach ($config as $key => $val) {
+				$tmp[$key] = $val instanceof Traversable ? iterator_to_array($val) : $val;
+			}
+			$config = $tmp;
 
 		} elseif (!is_array($config)) {
-			throw new InvalidArgumentException('Configuration must be array, string or ArrayObject.');
+			throw new InvalidArgumentException('Configuration must be array, string or object.');
 		}
 
 		self::alias($config, 'username', 'user');
 		self::alias($config, 'password', 'pass');
 		self::alias($config, 'host', 'hostname');
+		self::alias($config, 'result|detectTypes', 'resultDetectTypes'); // back compatibility
+		self::alias($config, 'result|formatDateTime', 'resultDateTime');
 
 		if (!isset($config['driver'])) {
 			$config['driver'] = dibi::$defaultDriver;
@@ -79,15 +89,20 @@ class DibiConnection extends DibiObject
 		$this->config = $config;
 		$this->driver = new $class;
 
-		if (!empty($config['profiler'])) {
-			$class = $config['profiler'];
-			if (is_numeric($class) || is_bool($class)) {
-				$class = 'DibiProfiler';
-			}
+		// profiler
+		$profilerCfg = & $config['profiler'];
+		if (is_numeric($profilerCfg) || is_bool($profilerCfg)) { // back compatibility
+			$profilerCfg = array('run' => (bool) $profilerCfg);
+		} elseif (is_string($profilerCfg)) {
+			$profilerCfg = array('run' => TRUE, 'class' => $profilerCfg);
+		}
+
+		if (!empty($profilerCfg['run'])) {
+			$class = isset($profilerCfg['class']) ? $profilerCfg['class'] : 'DibiProfiler';
 			if (!class_exists($class)) {
 				throw new DibiException("Unable to create instance of dibi profiler '$class'.");
 			}
-			$this->setProfiler(new $class);
+			$this->setProfiler(new $class($profilerCfg));
 		}
 
 		if (!empty($config['substitutes'])) {
@@ -189,15 +204,14 @@ class DibiConnection extends DibiObject
 	 * @param  string alias key
 	 * @return void
 	 */
-	public static function alias(&$config, $key, $alias=NULL)
+	public static function alias(&$config, $key, $alias)
 	{
-		if (isset($config[$key])) return;
+		$foo = & $config;
+		foreach (explode('|', $key) as $key) $foo = & $foo[$key];
 
-		if ($alias !== NULL && isset($config[$alias])) {
-			$config[$key] = $config[$alias];
+		if (!isset($foo) && isset($config[$alias])) {
+			$foo = $config[$alias];
 			unset($config[$alias]);
-		} else {
-			$config[$key] = NULL;
 		}
 	}
 
@@ -318,21 +332,13 @@ class DibiConnection extends DibiObject
 			}
 			$ticket = $this->profiler->before($this, $event, $sql);
 		}
-		// TODO: move to profiler?
-		dibi::$numOfQueries++;
-		dibi::$sql = $sql;
-		dibi::$elapsedTime = FALSE;
-		$time = -microtime(TRUE);
 
+		dibi::$sql = $sql;
 		if ($res = $this->driver->query($sql)) { // intentionally =
-			$res = new DibiResult($res, $this->config);
+			$res = new DibiResult($res, $this->config['result']);
 		} else {
 			$res = $this->driver->getAffectedRows();
 		}
-
-		$time += microtime(TRUE);
-		dibi::$elapsedTime = $time;
-		dibi::$totalTime += $time;
 
 		if (isset($ticket)) {
 			$this->profiler->after($ticket, $res);
@@ -452,16 +458,6 @@ class DibiConnection extends DibiObject
 
 
 	/**
-	 * @deprecated
-	 */
-	public function inTransaction()
-	{
-		trigger_error('Deprecated: use "SELECT @@autocommit" query instead.', E_USER_WARNING);
-	}
-
-
-
-	/**
 	 * Encodes data for use in a SQL statement.
 	 * @param  string    unescaped string
 	 * @param  string    type (dibi::TEXT, dibi::BOOL, ...)
@@ -555,8 +551,8 @@ class DibiConnection extends DibiObject
 	 */
 	public function update($table, $args)
 	{
-		if (!(is_array($args) || $args instanceof ArrayObject)) {
-			throw new InvalidArgumentException('Arguments must be array or ArrayObject.');
+		if (!(is_array($args) || $args instanceof Traversable)) {
+			throw new InvalidArgumentException('Arguments must be array or Traversable.');
 		}
 		return $this->command()->update('%n', $table)->set($args);
 	}
@@ -570,10 +566,10 @@ class DibiConnection extends DibiObject
 	 */
 	public function insert($table, $args)
 	{
-		if ($args instanceof ArrayObject) {
-			$args = (array) $args;
+		if ($args instanceof Traversable) {
+			$args = iterator_to_array($args);
 		} elseif (!is_array($args)) {
-			throw new InvalidArgumentException('Arguments must be array or ArrayObject.');
+			throw new InvalidArgumentException('Arguments must be array or Traversable.');
 		}
 		return $this->command()->insert()
 			->into('%n', $table, '(%n)', array_keys($args))->values('%l', $args);
@@ -721,6 +717,9 @@ class DibiConnection extends DibiObject
 	 */
 	public function getDatabaseInfo()
 	{
+		if (!($this->driver instanceof IDibiReflector)) {
+			throw new NotSupportedException('Driver '. get_class($this->driver) . ' has not reflection capabilities.');
+		}
 		$this->connect();
 		return new DibiDatabaseInfo($this->driver, isset($this->config['database']) ? $this->config['database'] : NULL);
 	}

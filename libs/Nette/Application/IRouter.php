@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Application
  */
+
+namespace Nette\Application;
+
+use Nette;
 
 
 
@@ -27,17 +31,17 @@ interface IRouter
 
 	/**
 	 * Maps HTTP request to a PresenterRequest object.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @return PresenterRequest|NULL
 	 */
-	function match(IHttpRequest $httpRequest);
+	function match(Nette\Web\IHttpRequest $httpRequest);
 
 	/**
 	 * Constructs absolute URL from PresenterRequest object.
-	 * @param  IHttpRequest
+	 * @param  Nette\Web\IHttpRequest
 	 * @param  PresenterRequest
 	 * @return string|NULL
 	 */
-	function constructUrl(PresenterRequest $appRequest, IHttpRequest $httpRequest);
+	function constructUrl(PresenterRequest $appRequest, Nette\Web\IHttpRequest $httpRequest);
 
 }

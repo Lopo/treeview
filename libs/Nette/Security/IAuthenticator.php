@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Security
  */
+
+namespace Nette\Security;
+
+use Nette;
 
 
 
@@ -21,8 +25,8 @@
 interface IAuthenticator
 {
 	/**#@+ Credential key */
-	const USERNAME = 'username';
-	const PASSWORD = 'password';
+	const USERNAME = 0;
+	const PASSWORD = 1;
 	/**#@-*/
 
 	/**#@+ Exception error code */
@@ -35,7 +39,6 @@ interface IAuthenticator
 	/**
 	 * Performs an authentication against e.g. database.
 	 * and returns IIdentity on success or throws AuthenticationException
-	 *
 	 * @param  array
 	 * @return IIdentity
 	 * @throws AuthenticationException

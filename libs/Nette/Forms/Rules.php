@@ -4,11 +4,15 @@
  * Nette Framework
  *
  * @copyright  Copyright (c) 2004, 2010 David Grudl
- * @license    http://nettephp.com/license  Nette license
- * @link       http://nettephp.com
+ * @license    http://nette.org/license  Nette license
+ * @link       http://nette.org
  * @category   Nette
  * @package    Nette\Forms
  */
+
+namespace Nette\Forms;
+
+use Nette;
 
 
 
@@ -18,9 +22,9 @@
  * @copyright  Copyright (c) 2004, 2010 David Grudl
  * @package    Nette\Forms
  */
-final class Rules extends Object implements IteratorAggregate
+final class Rules extends Nette\Object implements \IteratorAggregate
 {
-	/** @ignore internal */
+	/** @internal */
 	const VALIDATE_PREFIX = 'validate';
 
 	/** @var array */
@@ -164,40 +168,36 @@ final class Rules extends Object implements IteratorAggregate
 	 */
 	public function validate($onlyCheck = FALSE)
 	{
-		$valid = TRUE;
 		foreach ($this->rules as $rule)
 		{
 			if ($rule->control->isDisabled()) continue;
 
-			$success = ($rule->isNegative xor call_user_func($this->getCallback($rule), $rule->control, $rule->arg));
+			$success = ($rule->isNegative xor $this->getCallback($rule)->invoke($rule->control, $rule->arg));
 
 			if ($rule->type === Rule::CONDITION && $success) {
-				$success = $rule->subRules->validate($onlyCheck);
-				$valid = $valid && $success;
-
-			} elseif ($rule->type === Rule::VALIDATOR && !$success) {
-				if ($onlyCheck) {
+				if (!$rule->subRules->validate($onlyCheck)) {
 					return FALSE;
 				}
-				$rule->control->addError(vsprintf($rule->control->translate($rule->message, is_int($rule->arg) ? $rule->arg : NULL), (array) $rule->arg));
-				$valid = FALSE;
-				if ($rule->breakOnFailure) {
-					break;
+
+			} elseif ($rule->type === Rule::VALIDATOR && !$success) {
+				if (!$onlyCheck) {
+					$rule->control->addError(self::formatMessage($rule, TRUE));
 				}
+				return FALSE;
 			}
 		}
-		return $valid;
+		return TRUE;
 	}
 
 
 
 	/**
 	 * Iterates over ruleset.
-	 * @return ArrayIterator
+	 * @return \ArrayIterator
 	 */
 	final public function getIterator()
 	{
-		return new ArrayIterator($this->rules);
+		return new \ArrayIterator($this->rules);
 	}
 
 
@@ -224,10 +224,9 @@ final class Rules extends Object implements IteratorAggregate
 			$rule->operation = ~$rule->operation;
 		}
 
-		// check callback
-		if (!is_callable($this->getCallback($rule))) {
+		if (!$this->getCallback($rule)->isCallable()) {
 			$operation = is_scalar($rule->operation) ? " '$rule->operation'" : '';
-			throw new InvalidArgumentException("Unknown operation$operation for control '{$rule->control->name}'.");
+			throw new \InvalidArgumentException("Unknown operation$operation for control '{$rule->control->name}'.");
 		}
 	}
 
@@ -237,12 +236,27 @@ final class Rules extends Object implements IteratorAggregate
 	{
 		$op = $rule->operation;
 		if (is_string($op) && strncmp($op, ':', 1) === 0) {
-			return array(get_class($rule->control), self::VALIDATE_PREFIX . ltrim($op, ':'));
-
+			return callback(get_class($rule->control), self::VALIDATE_PREFIX . ltrim($op, ':'));
 		} else {
-			fixCallback($op);
-			return $op;
+			return callback($op);
 		}
+	}
+
+
+
+	public static function formatMessage($rule, $withValue)
+	{
+		$message = $rule->message;
+		if ($translator = $rule->control->getForm()->getTranslator()) {
+			$message = $translator->translate($message, is_int($rule->arg) ? $rule->arg : NULL);
+		}
+		$message = str_replace('%name', $rule->control->getName(), $message);
+		$message = str_replace('%label', $rule->control->translate($rule->control->caption), $message);
+		if (strpos($message, '%value') !== FALSE) {
+			$message = str_replace('%value', $withValue ? (string) $rule->control->getValue() : '%%value', $message);
+		}
+		$message = vsprintf($message, (array) $rule->arg);
+		return $message;
 	}
 
 }
