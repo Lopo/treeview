@@ -1,5 +1,4 @@
 <?php
-
 /**
  * TreeView control
  *
@@ -22,246 +21,205 @@
  * @copyright  Copyright (c) 2009, 2010 Roman Novák
  * @package    nette-treeview
  */
-class TreeViewNode extends Control
+
+use Nette\Application\Control,
+	Nette\IComponentContainer,
+	Nette\Environment;
+
+class TreeViewNode
+extends Control
 {
-    const COLLAPSED = 0;
-    const EXPANDED = 1;
+	const COLLAPSED=0;
+	const EXPANDED=1;
+	/** @var mixed */
+	protected $dataRow;
+	/** @var int */
+	protected $state;
+	/** @var bool */
+	protected $loaded=FALSE;
+	/** @var bool */
+	protected $invalid=FALSE;
 
-    /** @var mixed */
-    protected $dataRow;
-
-    /** @var int */
-    protected $state;
-
-    /** @var bool */
-    protected $loaded = false;
-
-    /** @var bool */
-    protected $invalid = false;
-
-    function __construct(IComponentContainer $parent = null, $name = null, &$dataRow = null)
-    {
+	function __construct(IComponentContainer $parent=NULL, $name=NULL, &$dataRow=NULL)
+	{
 		$this->setDataRow($dataRow);
 		parent::__construct($parent, $name);
-    }
+	}
 
     /********** handlers **********/
-
-    function handleExpand()
-    {
+	function handleExpand()
+	{
 		$this->invalidate();
 		$this->expand();
-    }
+	}
 
-    function handleCollapse()
-    {
+	function handleCollapse()
+	{
 		$this->invalidate();
 		$this->collapse();
-    }
+	}
 
-    protected function getDataRows()
-    {
-		$ds = clone $this->treeView->dataSource;
-		if(!empty($this->treeView->onFetchDataSource)) {
-		    $this->treeView->onFetchDataSource($this, $ds);
-		}
-		if(null === $ds) {
-		    throw new InvalidStateException('Missing data source.');
-		}
-		elseif($ds instanceOf IDataSource) {
-		    $parent = $this->getParent();
-		    if($parent instanceOf TreeViewNode && !empty($this->dataRow)) {
-			$ds->where('%n=%i', $this->treeView->parentColumn, $this->dataRow[$this->treeView->primaryKey]);
-		    }
-		    else {
-			if(null == empty($this->treeView->defaultParentValue)) {
-				$ds->where('%n IS NULL', $this->treeView->parentColumn);
-			}
+	protected function getDataRows()
+	{
+		$ds=clone $this->treeView->dataSource;
+		if (!empty($this->treeView->onFetchDataSource))
+			$this->treeView->onFetchDataSource($this, $ds);
+		if (NULL===$ds)
+			throw new \InvalidStateException('Missing data source.');
+		elseif ($ds instanceof \IDataSource) {
+			$parent=$this->getParent();
+			if ($parent instanceof TreeViewNode && !empty($this->dataRow))
+				$ds->where('%n=%i', $this->treeView->parentColumn, $this->dataRow[$this->treeView->primaryKey]);
 			else {
-				$ds->where('%n=%i', $this->treeView->parentColumn, $this->treeView->defaultParentValue);
+				if ($this->treeView->startParent)
+					$ds->where('%n=%i', $this->treeView->parentColumn, $this->treeView->startParent);
+				else
+					$ds->where('%n IS NULL', $this->treeView->parentColumn);
+				}
+			$dataRows=$ds->fetchAssoc($this->treeView->primaryKey);
 			}
-		    }
-		    $dataRows = $ds->fetchAssoc($this->treeView->primaryKey);
-		}
-		else {
-		    throw new InvalidStateException('DataSource must implement IDataSource interface.');
-		}
+		else
+			throw new \InvalidStateException('DataSource must implement \IDataSource interface.');
 		return $dataRows;
-    }
+	}
 
-    protected function load()
-    {
-		if(!$this->loaded) {
-		    $this->loaded = true;
-		    $dataRows = TreeView::EXPANDED !== $this->treeView->mode ? $this->getDataRows() : $this->treeView->getDataRows();
-		    foreach($dataRows as $dataRow) {
-			if((empty($this->dataRow) && empty($dataRow->parentId)) || (!empty($this->dataRow) && $this->dataRow->id === $dataRow->parentId)) {
-			    $name = $dataRow[$this->treeView->primaryKey];
-			    $node = new TreeViewNode($this, $name, $dataRow);
-			    $node['nodeLink'] = clone $this['nodeLink'];
-			    if(TreeView::EXPANDED === $this->treeView->mode && 
-			    (($this->treeView->rememberState && !$node->isSessionState()) ||
-			    !$this->treeView->rememberState)) {
-				$node->expand();
-			    }
+	protected function load()
+	{
+		if (!$this->loaded) {
+			$this->loaded=TRUE;
+			$dataRows= TreeView::EXPANDED!==$this->treeView->mode? $this->getDataRows() : $this->treeView->getDataRows();
+			foreach ($dataRows as $dataRow) {
+				if (empty($this->dataRow)
+					|| (!empty($this->dataRow) && $this->dataRow->id===$dataRow->parentId)
+					) {
+					$name=$dataRow[$this->treeView->primaryKey];
+					$node=new TreeViewNode($this, $name, $dataRow);
+					$node['nodeLink']=clone $this['nodeLink'];
+					if (TreeView::EXPANDED===$this->treeView->mode
+						&& (($this->treeView->rememberState && !$node->isSessionState()) || !$this->treeView->rememberState)
+						)
+						$node->expand();
+					}
+				}
 			}
-		    }
-		}
-	    }
-	
-	    public function signalReceived($signal)
-	    {
-		$parent = $this->getParent();
-		if($parent instanceOf TreeViewNode) {
-		    $parent->expand();
-		}
+	}
+
+	public function signalReceived($signal)
+	{
+		$parent=$this->getParent();
+		if ($parent instanceof TreeViewNode)
+			$parent->expand();
 		parent::signalReceived($signal);
-    }
+	}
 
-    protected function createComponent($name)
-    {
+	protected function createComponent($name)
+	{
 		$this->load();
-		return parent::createComponent($name);    
-    }
+		return parent::createComponent($name);
+	}
 
-    protected function createComponentStateLink($name)
-    {
+	protected function createComponentStateLink($name)
+	{
 		switch($this->getState()) {
-		    case self::EXPANDED:
-			$destination = 'collapse';
-			$labelKey = '-';
-			break;
-		    case self::COLLAPSED:
-			$destination = 'expand';
-			$labelKey = '+';
-			break;
-		}
-	
-		return new TreeViewLink($destination, $labelKey, null, $this->getTreeView()->useAjax, $this);
-    }
-    
-	protected function createComponentMoveUpLink($name)
-	{
-		return $this->createSortableLink('up');
-	}
-	
-	protected function createComponentMoveDownLink($name)
-	{
-		return $this->createSortableLink('down');
-	}
-	
-	protected function createComponentMoveLeftLink($name)
-	{
-		return $this->createSortableLink('left');
+			case self::EXPANDED:
+				$destination='collapse';
+				$labelKey='-';
+				break;
+			case self::COLLAPSED:
+				$destination='expand';
+				$labelKey='+';
+				break;
+			}
+		return new TreeViewLink($destination, $labelKey, NULL, $this->getTreeView()->useAjax, $this);
 	}
 
-	protected function createComponentMoveRightLink($name)
+	public function getNodes()
 	{
-		return $this->createSortableLink('right');
-	}
-
-	public function createSortableLink($direction)
-	{
-		return new Link($this->getTreeView(), 'move', array(
-			'direction' => $direction,
-			'node' => $this->dataRow[$this->getTreeView()->primaryKey],
-			'referenced' => '',
-		));
-		//return new TreeViewLink('move', $direction, $direction, $this->getTreeView()->useAjax, $this);
-	}
-
-    public function getNodes()
-    {
 		$this->load();
-		return $this->getComponents(false, 'TreeViewNode');
-    }
+		return $this->getComponents(FALSE, 'TreeViewNode');
+	}
 
-    function expand()
-    {
+	function expand()
+	{
 		$this->setState(self::EXPANDED);
-    }
+	}
 
-    function collapse()
-    {
+	function collapse()
+	{
 		$this->setState(self::COLLAPSED);
-    }
+	}
 
-    /********** state **********/
+	/********** state **********/
+	public function setState($state)
+	{
+		$this->state=$state;
+		if ($this->getTreeView()->rememberState) {
+			$session=$this->getNodeSession();
+			$session['state']=$state;
+			}
+	}
 
-    public function setState($state)
-    {
-		$this->state = $state;
-		if($this->getTreeView()->rememberState) {
-		    $session = $this->getNodeSession();
-		    $session['state'] = $state;
-		}
-    }
-
-    public function getState()
-    {
-		if(null === $this->state) {
-		    if(true === $this->getTreeView()->rememberState) {
-			$session = $this->getNodeSession();
-			$this->state = isset($session['state']) ? $session['state'] : self::COLLAPSED;
-		    }
-		    else {
-			$this->state = self::COLLAPSED;
-		    }
-		}
+	public function getState()
+	{
+		if (NULL===$this->state) {
+			if (TRUE===$this->getTreeView()->rememberState) {
+				$session=$this->getNodeSession();
+				$this->state= isset($session['state'])? $session['state'] : self::COLLAPSED;
+				}
+			else
+				$this->state=self::COLLAPSED;
+			}
 		return $this->state;
-    }
+	}
 
-    public function isSessionState()
-    {
-		$session = $this->getNodeSession();
+	public function isSessionState()
+	{
+		$session=$this->getNodeSession();
 		return isset($session['state']);
-    }
+	}
 
-    protected function getNodeSession()
-    {
-		return Environment::getSession()->getNamespace('Nette.Extras.TreeView/' . $this->getTreeView()->getName() . '/' . $this->getName());
-    }
+	protected function getNodeSession()
+	{
+		return Environment::getSession()->getNamespace('Nette.Extras.TreeView/'.$this->getTreeView()->getName().'/'.$this->getName());
+	}
 
-    /********** node validation **********/
-
-    public function invalidate()
-    {
-		$this->invalid = true;
+	/********** node validation **********/
+	public function invalidate()
+	{
+		$this->invalid=TRUE;
 		$this->invalidateControl();
-    }
+	}
 
-    public function validate()
-    {
-		$this->invalid = false;
+	public function validate()
+	{
+		$this->invalid=FALSE;
 		$this->validateControl();
-    }
+	}
 
-    public function isInvalid()
-    {
+	public function isInvalid()
+	{
 		return $this->invalid;
-    }
+	}
 
-    public function isLoaded()
-    {
+	public function isLoaded()
+	{
 		return $this->loaded;
-    }
+	}
 
-    /********** setters **********/
+	/********** setters **********/
+	function setDataRow($dataRow)
+	{
+		$this->dataRow=$dataRow;
+	}
 
-    function setDataRow($dataRow)
-    {
-		$this->dataRow = $dataRow;
-    }
-
-    /********** getters **********/
-
-    public function getTreeView()
-    {
+	/********** getters **********/
+	public function getTreeView()
+	{
 		return $this->lookup('TreeView');
-    }
+	}
 
-    function getDataRow()
-    {
+	function getDataRow()
+	{
 		return $this->dataRow;
-    }
+	}
 }

@@ -25,7 +25,7 @@
 use Nette\Object,
 	Nette\Web\Html;
 
-class TreeViewRenderer
+class SortableTreeViewRenderer
 extends Object
 implements ITreeViewRenderer
 {
@@ -38,13 +38,16 @@ implements ITreeViewRenderer
 			),
 		'nodes' => array(
 			'root' => 'ul',
-			'container' => 'ul'
+			'#root' => 'sortableTree',
+			'container' => 'ul',
+			'.list' => 'page-list',
 			),
 		'node' => array(
-			'icon' => NULL,
+			'icon' => null,
 			'container' => 'li',
-			'.selected' => 'current',
-			'.expanded' => 'expanded',
+			'.item' => 'page-item',
+			'subcontainer' => 'span',
+			'.subcontainer' => 'node',
 			),
 		'link' => array(
 			'node' => 'a',
@@ -52,14 +55,51 @@ implements ITreeViewRenderer
 			'expand' => 'a',
 			'.ajax' => 'ajax',
 			),
+		'move' => array(
+			'container' => 'span',
+			'.class' => 'move',
+			),
+		'delete' => array(
+			'container' => 'a',
+			'.class' => 'delete',
+			'.ajax' => 'ajaxDelete',
+			'subcontainer' => 'span',
+			),
 		);
+
+	public $script="$(function() {
+		$('#%s').NestedSortable({
+		onChange: function(serialized) {
+			return jQuery.ajax({
+				url: '%s',
+				data: serialized[0].hash
+				});
+			},
+		accept: '%s',
+		opacity: 0.8,
+		helperclass: 'helper',
+		nestingPxSpace: '20',
+		currentNestingClass: 'current-nesting',
+		fx: 400,
+		revert: true,
+		autoScroll: false
+		});
+	});";
+	public $onChange='nodeMove';
+	public $onDelete='nodeDelete';
+	public $onEdit='edit';
 
 	public function render(TreeView $tree)
 	{
-		if($this->tree!==$tree)
+		if ($this->tree!==$tree)
 			$this->tree=$tree;
 		$snippetId=$this->tree->getSnippetId();
+
 		$html=$this->renderNodes($this->tree->getNodes(), 'nodes root');
+		$html->add(
+				Html::el('script', array('type'=>'text/javascript', 'charset'=>'utf-8'))
+					->add(sprintf($this->script, $this->getValue('nodes #root'), $this->tree->getPresenter()->link($this->onChange.'!'), $this->getValue('node .item')))
+				);
 		if ($this->tree->isControlInvalid() && $this->tree->getPresenter()->isAjax())
 			$this->tree->getPresenter()->getPayload()->snippets[$snippetId]=(string)$html;
 		if (!$this->tree->getPresenter()->isAjax()) {
@@ -73,10 +113,13 @@ implements ITreeViewRenderer
 	public function renderNodes($nodes, $wrapper='nodes container')
 	{
 		$nodesContainer=$this->getWrapper($wrapper);
+		if ($wrapper=='nodes root')
+			$nodesContainer->id=$this->getValue('nodes #root');
+		$nodesContainer->class=$this->getValue('nodes .list');
 		foreach ($nodes as $n) {
 			$child=$this->renderNode($n);
-				if (NULL!==$child)
-			$nodesContainer->add($child);
+			if (NULL!==$child)
+				$nodesContainer->add($child);
 			}
 		return $nodesContainer;
 	}
@@ -84,22 +127,19 @@ implements ITreeViewRenderer
 	public function renderNode(TreeViewNode $node)
 	{
 		$nodes=$node->getNodes();
-		$snippetId=$node->getSnippetId();
+		$snippetId=$node->getDataRow()->id;
 		$nodeContainer=$this->getWrapper('node container');
 		$nodeContainer->id=$snippetId;
-		if ($this->tree->getSelected()==$node->name)
-			$nodeContainer->addClass($this->getValue('node .selected'));
-		if ($node->getState()==TreeViewNode::EXPANDED && count($nodes)>0)
-			$nodeContainer->addClass($this->getValue('node .expanded'));
+		$nodeContainer->class=$this->getValue('node .item');
 		if (count($nodes)>0) {
-			switch($node->getState()) {
+			switch ($node->getState()) {
 				case TreeViewNode::EXPANDED:
 					$stateLink=$this->renderLink($node, 'stateLink', 'link collapse');
 					break;
 				case TreeViewNode::COLLAPSED:
 					$stateLink=$this->renderLink($node, 'stateLink', 'link expand');
 					break;
-				}
+			}
 			if (NULL!==$stateLink)
 				$nodeContainer->add($stateLink);
 			}
@@ -144,6 +184,37 @@ implements ITreeViewRenderer
 			$span->add($el);
 			return $span;
 			}
+		else {
+			$sub=$this->getWrapper('node subcontainer');
+			$sub->class=$this->getValue('node .subcontainer');
+			$sub->add($el);
+
+			$move=$this->getWrapper('move container');
+			$move->addClass($this->getValue('move .class'));
+			//TODO: nefunguje v nove verzi jquery?
+			//$move->addClass('handler');
+
+			$delete=$this->getWrapper('delete container');
+			$delete->href=$this->tree->getPresenter()->link($this->onDelete.'!', $node->getDataRow()->id);
+			$delete->class=$this->getValue('delete .ajax');
+			$delete->addClass($this->getValue('delete .class'));
+			$deleteSpan=$this->getWrapper('delete subcontainer');
+			$deleteSpan->add('delete');
+			$delete->add($deleteSpan);
+
+			$edit=Html::el('a');
+			$edit->href=$this->tree->getPresenter()->link($this->onEdit, $node->getDataRow()->id);
+			$edit->addClass('edit');
+			$editSpan=Html::el('span');
+			$editSpan->add('edit');
+			$edit->add($editSpan);
+
+			$sub->add($move);
+			$sub->add($delete);
+			$sub->add($edit);
+
+			return $sub;
+			}
 		return $el;
 	}
 
@@ -152,7 +223,7 @@ implements ITreeViewRenderer
 		$data=$this->getValue($name);
 		if (empty($data))
 			return $data;
-		return $data instanceof Html ? clone $data : Html::el($data);
+		return $data instanceOf Html ? clone $data : Html::el($data);
 	}
 
 	protected function getValue($name)

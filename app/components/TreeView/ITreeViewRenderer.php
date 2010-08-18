@@ -1,5 +1,4 @@
 <?php
-
 /**
  * TreeView control
  *
@@ -22,7 +21,8 @@
  * @copyright  Copyright (c) 2009, 2010 Roman Novák
  * @package    nette-treeview
  */
+
 interface ITreeViewRenderer
 {
-    function render(TreeView $node);
+	function render(TreeView $node);
 }
