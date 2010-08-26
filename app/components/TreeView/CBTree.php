@@ -3,7 +3,8 @@
  * @author Pavol (Lopo) Hluchý
  */
 use Nette\Web\Html,
-	Nette\Forms\Form;
+	Nette\Forms\Form,
+	Nette\Forms\FormControl;
 
 class CBTree
 extends FormControl
@@ -96,9 +97,12 @@ extends FormControl
 		$id=$control->id;
 		$label=Html::el('label');
 		$ul=Html::el('ul', array('id'=>$name));
-		$script=Html::el('script', array('type'=>"text/javascript"));
-		$script->add("jQuery(document).ready(function(){\$('ul#$name').collapsibleCheckboxTree({ checkParents: ".($this->checkParents? 'true' : 'false').", checkChildren: ".($this->checkChildren? 'true' : 'false').", uncheckChildren: ".($this->uncheckChildren? 'true' : 'false').", initialState: '".$this->initialState."'});});");
-		$container->add($script);
+		$container->add(Html::el('script', array('type'=>"text/javascript"))
+						->add("$(function(){\$('ul#$name').collapsibleCheckboxTree({ checkParents: ".($this->checkParents? 'true' : 'false').", checkChildren: ".($this->checkChildren? 'true' : 'false').", uncheckChildren: ".($this->uncheckChildren? 'true' : 'false').", initialState: '".$this->initialState."'});});")
+						);
+		$container->add(Html::el('style')
+						->add("#$name ul { padding-left:20px;}#$name li { list-style:none;}#$name ul.hide { display:none;}#$name span { color:#999;font-family:'Courier New', Courier, monospace;cursor:default;}#$name span.expanded, #$name span.collapsed { cursor:pointer;}")
+						);
 		foreach ($this->tree->getNodes() as $node)
 			$ul->add($this->renderNode($node, $control, $label));
 		$container->add($ul);
