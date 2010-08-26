@@ -101,7 +101,7 @@ extends FormControl
 						->add("$(function(){\$('ul#$name').collapsibleCheckboxTree({ checkParents: ".($this->checkParents? 'true' : 'false').", checkChildren: ".($this->checkChildren? 'true' : 'false').", uncheckChildren: ".($this->uncheckChildren? 'true' : 'false').", initialState: '".$this->initialState."'});});")
 						);
 		$container->add(Html::el('style')
-						->add("#$name ul { padding-left:20px;}#$name li { list-style:none;}#$name ul.hide { display:none;}#$name span { color:#999;font-family:'Courier New', Courier, monospace;cursor:default;}#$name span.expanded, #$name span.collapsed { cursor:pointer;}")
+						->add("#$name ul { padding-left:20px;}#$name li { list-style:none;}#$name ul.hide { display:none;}#$name span { color:#999;font-family:'Courier New', Courier, monospace;cursor:default;}#$name span.expanded, #$name span.collapsed { cursor:pointer;}#$name label { float: none; display: inline;}")
 						);
 		foreach ($this->tree->getNodes() as $node)
 			$ul->add($this->renderNode($node, $control, $label));
