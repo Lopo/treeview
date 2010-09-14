@@ -87,10 +87,11 @@ extends Control
 	{
 		if (!$this->loaded) {
 			$this->loaded=TRUE;
+			$pid=$this->treeView->parentColumn;
 			$dataRows= TreeView::EXPANDED!==$this->treeView->mode? $this->getDataRows() : $this->treeView->getDataRows();
 			foreach ($dataRows as $dataRow) {
 				if (empty($this->dataRow)
-					|| (!empty($this->dataRow) && $this->dataRow->id===$dataRow->parentId)
+					|| (!empty($this->dataRow) && $this->dataRow->id===$dataRow->$pid)
 					) {
 					$name=$dataRow[$this->treeView->primaryKey];
 					$node=new TreeViewNode($this, $name, $dataRow);
