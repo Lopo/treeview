@@ -1,0 +1,19 @@
+{block #content}
+<script type="text/javascript" src="{$basePath}/js/interface/interface.js"></script>
+<script type="text/javascript" src="{$basePath}/js/inestedsortable.js"></script>
+<script type="text/javascript" src="{$basePath}/js/jquery.jeditable.js"></script>
+<script type="text/javascript" src="{$basePath}/js/ui/jquery-ui-1.8.2.blitzer.js"></script>
+<link type="text/css" href="{$basePath}/css/blitzer/jquery-ui-1.8.2.custom.css" rel="stylesheet" media="screen" />
+<style type="text/css">
+.helper {
+	border: 2px dashed #777777;
+	}
+.current-nesting {
+	background-color: yellow;
+	}
+.bold {
+	color: red;
+	font-weight: bold;
+	}
+</style>
+{control eTree}

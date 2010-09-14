@@ -1,21 +1,18 @@
 <?php
- 
-/**
- * TreeView - Nette Framework Example.
- *
- * @copyright  Copyright (c) 2010 Roman Novák
- * @package    nette-treeview
- */
+use Nette\Web,
+	Nette\Application;
 
-
-
-/**
- * Base class for all application presenters.
- *
- * @author     Roman Novák
- * @package    nette-treeview
- */
-abstract class BasePresenter extends Presenter
+abstract class BasePresenter
+extends Nette\Application\Presenter
 {
+	protected function beforeRender()
+	{
+		$this->template->bl=$this->getApplication()->storeRequest();
+	}
 
+	protected function createTemplate()
+	{
+		$template=parent::createTemplate();
+		return $template;
+	}
 }

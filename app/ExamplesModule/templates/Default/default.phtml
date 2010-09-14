@@ -1,0 +1,33 @@
+{block #content}
+<script type="text/javascript">
+$(function(){
+	$(".vertMenu").buildMenu({
+		menuWidth: 170,
+		openOnRight: true,
+		menuSelector: ".menuContainer",
+		iconPath: "/images/ico/",
+		hasImages: true,
+		fadeInTime: 200,
+		fadeOutTime: 200,
+		adjustLeft: 0,
+		adjustTop: 0,
+		opacity: .95,
+		openOnClick: false,
+		minZindex: 200,
+		shadow: true,
+		hoverIntent: 300,
+		submenuHoverIntent: 500,
+		closeOnMouseOut: true
+		});
+	});
+</script>
+<!-- start vertical menu -->
+<div class="wrapper">
+<div class="vertMenu">
+	<table class="rootVoices vertical" cellspacing='0' cellpadding='0' border='0'>
+		<tr><td class="rootVoice { menu: 'empty'}" onclick="window.location.assign({link CBox3S:});">CBox3S</td></tr>
+		<tr><td class="rootVoice { menu: 'empty'}" onclick="window.location.assign({link TreeView:});">TreeView</td></tr>
+		<tr><td class="rootVoice { menu: 'empty'}" onclick="window.location.assign({link PswdInput:});">PswdInput</td></tr>
+	</table>
+</div>
+</div>

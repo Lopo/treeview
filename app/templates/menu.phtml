@@ -1,0 +1,44 @@
+{extends none}
+<link type="text/css" href="{$basePath}/css/menu_red.css" rel="stylesheet" />
+<script type="text/javascript" src="{$basePath}/js/jquery.metadata.js"></script>
+<script type="text/javascript" src="{$basePath}/js/jquery.hoverIntent.js"></script>
+<script type="text/javascript" src="{$basePath}/js/mbMenu.js"></script>
+<script type="text/javascript">
+$(document).ready( function() {
+	$(function(){
+		$(".topMenu").buildMenu({
+			menuWidth: 200,
+			openOnRight: false,
+			menuSelector: ".menuContainer",
+			iconPath: "/images/menu/",
+			hasImages: true,
+			fadeInTime: 100,
+			fadeOutTime: 300,
+			adjustLeft: 2,
+			minZindex: "auto",
+			adjustTop: 10,
+			opacity: .95,
+			shadow: true,
+			openOnClick: false,
+			closeOnMouseOut: true,
+			closeAfter: 1000
+			});
+		})
+	});
+</script>
+<div class="wrapper">
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#DD2A19" class="container"><tr>
+		<td class="topMenu" align="left" style="padding-left: 10px;">
+			<!-- start horizontal menu -->
+			<table class="rootVoices" cellspacing="0" cellpadding="0" border="0"><tr>
+				<td class="rootVoice { menu: 'examples'}" onClick="window.location.assign({link :Examples:Default:});">Examples</td>
+			</tr></table>
+			<!-- end horizontal menu -->
+		</td>
+	</tr></table>
+</div>
+
+<div id="examples" class="mbmenu">
+	<a href="{link :Examples:TreeView:}">TreeView</a>
+	<a rel="separator"> </a>
+</div>

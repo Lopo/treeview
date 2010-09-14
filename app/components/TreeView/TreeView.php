@@ -88,7 +88,8 @@ extends TreeViewNode
 	/**
 	 * Adds link
 	 * @param string link destination
-	 * @param string param labelKey
+	 * @param string labelKey
+	 * @param string paramKey
 	 * @param bool useAjax
 	 * @param bool presenterComponent
 	 * @return TreeViewLink

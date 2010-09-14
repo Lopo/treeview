@@ -1,13 +1,6 @@
 # disable directory listing
 Options -Indexes
 
-# configure PHP
-# <IfModule mod_php5.c>
-#    php_flag magic_quotes_gpc off
-#    php_flag register_globals off
-#    php_flag zend.ze1_compatibility_mode off
-# </IfModule>
-
 # mod_rewrite
 <IfModule mod_rewrite.c>
 	RewriteEngine On

@@ -1,0 +1,16 @@
+@{block #content}
+<link type="text/css" href="{$basePath}/css/blitzer/jquery-ui-1.8.2.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="{$basePath}/js/interface/interface.js"></script>
+<script type="text/javascript" src="{$basePath}/js/inestedsortable.js"></script>
+{snippet message}
+{if isset($site)}
+<div class="ui-widget ui-state-highlight ui-corner-all">
+	You clicked on "{$site->name}" link in tree view example.
+</div>
+{/if}
+{/snippet}
+{snippet mode}
+	Modes:  <a href="{link mode!, TreeView::EXPANDED}" class="ajax{if $mode==TreeView::EXPANDED} active{/if}">Expanded</a> | <a href="{link mode!, TreeView::AJAX}" class="ajax{if $mode==TreeView::AJAX} active{/if}">Ajax</a>
+{/snippet}
+
+@{widget pTree}
