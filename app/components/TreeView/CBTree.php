@@ -13,7 +13,7 @@ extends FormControl
 	protected $container;
 	/** @var TreeView data */
 	protected $tree;
-	/** @var string */
+	/** @var string CB column */
 	public $checkColumn='visible';
 	/** @var bool */
 	public $checkParents=true;
@@ -23,6 +23,8 @@ extends FormControl
 	public $uncheckChildren=true;
 	/** @var string 'expand' (fully expanded), 'collapse' (fully collapsed) or 'default' */
 	public $initialState='default';
+	/** @var string name column */
+	public $nameColumn='name';
 
 	/**
 	 * @param  string  label
@@ -140,7 +142,8 @@ extends FormControl
 		else
 			$control->checked=null;
 		$control->value=$nid;
-		$label->setText($node->getDataRow()->name);
+		$nc=$this->nameColumn;
+		$label->setText($node->getDataRow()->$nc);
 		$li->add((string)$control.(string)$label);
 		$nodes=$node->getNodes();
 		if (count($nodes)) {
