@@ -160,11 +160,9 @@ implements ITreeViewRenderer
 							."});\n"
 							)
 				);
-			$div=Html::el('div', array('id'=>$snippetId.'-dform', 'title'=>$snippetId, 'style'=>'font-size: 62.5%;'))
-					->add(Html::el('p', array('class'=>'validateTips', 'style'=>'border: 1px solid transparent; padding: 0.3em;')));
 			$fset=Html::el('fieldset', array('style'=>'padding:0; border:0;'));
 			$fset->add(Html::el('input', array('type'=>'hidden', 'name'=>$snippetId.'-id', 'id'=>$snippetId.'-id')));
-			$fset->add(Html::el('label', array('for'=>$snippetId.'-meno', 'style'=>'display:block;'))->add('Názov'));
+			$fset->add(Html::el('label', array('for'=>$snippetId.'-meno', 'style'=>'display: block;'))->add('Názov'));
 			$fset->add(Html::el('input', array(
 												'type' => 'text',
 												'name' => $snippetId.'-meno',
@@ -172,8 +170,11 @@ implements ITreeViewRenderer
 												'class' => 'text ui-widget-content ui-corner-all',
 												'style' => 'display:block; width:95%;'
 												)));
-			$div->add(Html::el('form')->add($fset));
-			$treeContainer->add($div);
+			$treeContainer->add(
+				Html::el('div', array('id'=>$snippetId.'-dform', 'title'=>$snippetId, 'style'=>'font-size: 62.5%;'))
+					->add(Html::el('p', array('class'=>'validateTips', 'style'=>'border: 1px solid transparent; padding: 0.3em;')))
+					->add(Html::el('form')->add($fset))
+				);
 			$treeContainer->add(Html::el('button', array('id'=>$snippetId.'-cnode'))->add('Pridať položku'));
 			}
 		else
@@ -215,7 +216,7 @@ implements ITreeViewRenderer
 		$nodeContainer=Html::el('li', array(
 											'class' => 'clear-element '.$this->tree->getName().'-item sort-handle left',
 											'id' => $node->getDataRow()->id,
-											'style' => 'clear: both; cursor: move; text-align: left;'
+											'style' => 'clear: both; text-align: left;'
 											));
 		$link=$this->renderLink($node, 'nodeLink');
 		if ($link!==NULL)
@@ -245,9 +246,9 @@ implements ITreeViewRenderer
 		$link=$node[$name];
 		$label=$link->getLabel();
 		$el=Html::el('div');
-		$el->add(Html::el('img', array('src' => $this->img_move, 'height' => '16', 'class' => 'handler', 'alt' => 'move')));
+		$el->add(Html::el('img', array('src'=>$this->img_move, 'height'=>'16', 'class'=>'handler', 'alt'=>'move', 'style'=>'cursor: move;')));
 		if ($this->useCB) {
-			$cbx=Html::el('input', array('type' => 'checkbox', 'name' => $nname.'[]', 'id' => 'cbx-'.$id, 'style'=>'cursor: default;'));
+			$cbx=Html::el('input', array('type'=>'checkbox', 'name'=>$nname.'[]', 'id'=>'cbx-'.$id, 'style'=>'cursor: default;'));
 			$ck=$this->checkColumn;
 			if ($node->getDataRow()->$ck)
 				$cbx->checked='checked';
