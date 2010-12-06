@@ -2,7 +2,7 @@
 /**
  * EditableTree renderer
  *
- * @author     Pavol Hluchý (Lopo)
+ * @author Pavol (Lopo) Hluchý <lopo@losys.eu> 
  */
 use Nette\Object,
 	Nette\Web\Html,
@@ -37,16 +37,14 @@ implements ITreeViewRenderer
 	/** @var string event zmeny struktury */
 	public $onChange='TChange';
 	/** @var string JS spojenia jQuery pluginu editacie nazvu */
-	public $editJS="$(function() {
-	$('.%s_click').editable('%s', {
+	public $editJS="$('.%s_click').editable('%s', {
 		indicator: \"<img src='/images/spinner.gif' alt='spinner'>\",
 		tooltip: 'Klikni pre upravenie ...',
 		placeholder: 'žiadny',
 		submit: 'nastav',
 		type: 'text',
 		style: 'inherit'
-		});
-	});";
+		});";
 	/** @var string event zmeny nazvu */
 	public $onEdit='EditTypeName';
 	/** @var string img pridania node */
@@ -58,7 +56,7 @@ implements ITreeViewRenderer
 	/** @var string img posuvneho bodu */
 	public $img_move='/images/icons/1268227056_arrow_move.png';
 	/** @var string styl pre node */
-	public $styleItem=".%s-item > div {background: #f8f8f8; margin: 0.25em 0 0 0;}";
+	public $styleItem='.%s-item > div {background: #f8f8f8; margin: 0.25em 0 0 0;}';
 	/** @var bool pouzit CheckBoxy */
 	public $useCB=TRUE;
 	/** @var string event pre pridanie polozky */
@@ -77,8 +75,8 @@ implements ITreeViewRenderer
 	public $enableDel=TRUE;
 
 	/**
-	 * @param TreeView
-	 * @return Nette\Web\Html
+	 * @param TreeView $tree
+	 * @return Html
 	 */
 	public function render(TreeView $tree)
 	{
@@ -86,117 +84,110 @@ implements ITreeViewRenderer
 			$this->tree=$tree;
 		$snippetId=$this->tree->getName();
 		$prez=$this->tree->getPresenter();
+		$script=Html::el('script', array('type' => 'text/javascript', 'charset' => 'utf-8'))
+				->add('$(function() {');
+		$css=Html::el('style', array('type' => 'text/css'))
+				->add(sprintf($this->styleItem, $snippetId));
 
-		$treeContainer=Html::el('div', array('class'=>'etwrap', 'style'=>'border: 1px solid #BBBBBB; padding: 1em 1em 1em 1em;')); //TODO: class 'etwrap' nikde nepouzite
-		$css=Html::el('style', array('type' => 'text/css'));
-		$css->add(sprintf($this->styleItem, $snippetId));
+		$treeContainer=Html::el('div', array('class'=>'etwrap', 'style'=>'border: 1px solid #BBBBBB; padding: 1em 1em 1em 1em;')); // PENDING class 'etwrap' nikde nepouzite
 		if ($this->enableAdd)
 			$css->add(".etbtn_add { background-image: url('".$this->img_add."'); background-color: transparent; border: none; width: 16px; height: 16px;}");
-		if ($this->enableEditName)
+		if ($this->enableEditName && !$this->useUI)
 			$css->add(".etbtn_edit { background-image: url('".$this->img_edit."'); background-color: transparent; border: none; width: 16px; height: 16px;}");
 		if ($this->enableDel)
 			$css->add(".etbtn_del { background-image: url('".$this->img_cancel."'); background-color: transparent; border: none; width: 16px; height: 16px;}");
-		$treeContainer->add($css);
 
 		if ($this->enableEditName && !$this->useUI)
-			$treeContainer->add(
-				Html::el('script', array('type' => 'text/javascript', 'charset' => 'utf-8'))
-					->add(sprintf($this->editJS, $snippetId, $prez->link($this->onEdit.'!')))
-				);
-		$treeContainer->add($this->renderNodes($this->tree->getNodes(), Html::el('ul', array('id' => $snippetId, 'class' => 'page-list', 'style' => "list-style: none; margin: 0; padding: 0; display: block;"))));
-		$treeContainer->add(
-			Html::el('script', array('type' => 'text/javascript', 'charset' => 'utf-8'))
-				->add(sprintf($this->linkingJS, $snippetId, $prez->link($this->onChange.'!'), $snippetId))
-			);
+			$script->add(sprintf($this->editJS, $snippetId, $prez->link($this->onEdit.'!')));
+		$treeContainer->add($this->renderNodes($this->tree->getNodes(), Html::el('ul', array('id' => $snippetId, 'class' => 'page-list', 'style' => 'list-style: none; margin: 0; padding: 0; display: block;'))));
+		$script->add(sprintf($this->linkingJS, $snippetId, $prez->link($this->onChange.'!'), $snippetId));
 		if ($this->useUI) {
-			$treeContainer->add(Html::el('style', array('type' => 'text/css'))->add(".ui-dialog .ui-state-error { padding: .3em;}"));
-			$treeContainer->add(
-				Html::el('script', array('type' => 'text/javascript', 'charset' => 'utf-8'))
-					->add(
-						"$(function() {"
-							."var id=$('#$snippetId-id'),meno=$('#$snippetId-meno'),allFields=$([]).add(id).add(meno),tips=$('.validateTips');\n"
-							."function updateTips(t){ tips.text(t).addClass('ui-state-highlight');setTimeout(function() { tips.removeClass('ui-state-highlight', 1500);}, 500);}\n"
-							."function checkLength(o,n,min,max){ if ( o.val().length > max || o.val().length < min ) { o.addClass('ui-state-error');updateTips('Length of ' + n + ' must be between '+min+' and '+max+'.');return false;}else return true;}\n"
-							."function checkRegexp(o,regexp,n){ if (!(regexp.test(o.val()))){ o.addClass('ui-state-error');updateTips(n);return false;}else return true;}\n"
-							."$('#$snippetId-dform').dialog({"
-								."autoOpen: false,"
-								."height: 200,"
-								."width: 250,"
-								."modal: true,"
-								."buttons: {"
-									."'Nastaviť': function() {"
-										."var bValid=true;"
-										."allFields.removeClass('ui-state-error');"
-										."bValid=bValid && checkLength(meno, 'meno', 2, 50);"
-										."if (bValid) {"
-											."jQuery.ajax({"
-												."url: $(this).dialog('option', 'nop')=='add'? ".TemplateHelpers::escapeJs($prez->link($this->onAdd.'!'))." : ".TemplateHelpers::escapeJs($prez->link($this->onEdit.'!')).","
-												."type: 'post',"
-												."data: {"
-													."id: $(this).dialog('option', 'idval'),"
-													."value: meno.val()"
-													."},"
-												."complete: function(data){ window.location.reload();}"
-												."});"
-											."$(this).dialog('close');"
-											."}"
-										."},"
-									."Cancel: function() {"
-										."$(this).dialog('close');"
-										."}"
-									."},"
-								."open: function() {"
-									."var dlgvals=$(this).dialog('option', 'dlgvals');"
-									."id.val(dlgvals['id']);"
-									."$(this).dialog('option', 'idval', dlgvals['id']);"
-									."if ($(this).dialog('option', 'nop')=='update')"
-										."meno.val(dlgvals['meno']);"
-									."meno.focus();"
-									."},"
-								."close: function() {"
-									."allFields.val('').removeClass('ui-state-error');"
-									."}"
-								."});\n"
-							."$('#$snippetId-cnode').button().click(function(){ $('#$snippetId-dform').dialog('option', 'dlgvals', { id: 0, meno: ''});$('#$snippetId-dform').dialog('option', 'nop', 'add');$('#$snippetId-dform').dialog('open');});\n"
-							."});\n"
-							)
+			$css->add('.ui-dialog .ui-state-error { padding: .3em;}');
+			$script->add(
+				"var id=$('#$snippetId-id'),meno=$('#$snippetId-meno'),allFields=$([]).add(id).add(meno),tips=$('.validateTips');\n"
+				."function updateTips(t){ tips.text(t).addClass('ui-state-highlight');setTimeout(function() { tips.removeClass('ui-state-highlight', 1500);}, 500);}\n"
+				."function checkLength(o,n,min,max){ if (o.val().length>max || o.val().length<min){ o.addClass('ui-state-error');updateTips('Length of '+n+' must be between '+min+' and '+max+'.');return false;}else return true;}\n"
+				."function checkRegexp(o,regexp,n){ if (!(regexp.test(o.val()))){ o.addClass('ui-state-error');updateTips(n);return false;}else return true;}\n"
+				."$('#$snippetId-dform').dialog({"
+					.'autoOpen: false,'
+					.'height: 200,'
+					.'width: 250,'
+					.'modal: true,'
+					.'buttons: {'
+						."'Nastaviť': function() {"
+							.'var bValid=true;'
+							."allFields.removeClass('ui-state-error');"
+							."bValid=bValid && checkLength(meno, 'meno', 2, 50);"
+							.'if (bValid) {'
+								.'jQuery.ajax({'
+									."url: $(this).dialog('option', 'nop')=='add'? ".TemplateHelpers::escapeJs($prez->link($this->onAdd.'!')).' : '.TemplateHelpers::escapeJs($prez->link($this->onEdit.'!')).','
+									."type: 'post',"
+									.'data: {'
+										."id: $(this).dialog('option', 'idval'),"
+										.'value: meno.val()'
+										.'},'
+									.'complete: function(data){ window.location.reload();}'
+									.'});'
+								."$(this).dialog('close');"
+								.'}'
+							.'},'
+						.'Cancel: function() {'
+							."$(this).dialog('close');"
+							.'}'
+						.'},'
+					.'open: function() {'
+						."var dlgvals=$(this).dialog('option', 'dlgvals');"
+						."id.val(dlgvals['id']);"
+						."$(this).dialog('option', 'idval', dlgvals['id']);"
+						."if ($(this).dialog('option', 'nop')=='update')"
+							."meno.val(dlgvals['meno']);"
+						.'meno.focus();'
+						.'},'
+					.'close: function() {'
+						."allFields.val('').removeClass('ui-state-error');"
+						.'}'
+					."});\n"
+				."$('#$snippetId-cnode').button().click(function(){ $('#$snippetId-dform').dialog('option', 'dlgvals', { id: 0, meno: ''});$('#$snippetId-dform').dialog('option', 'nop', 'add');$('#$snippetId-dform').dialog('open');});\n"
 				);
 			$fset=Html::el('fieldset', array('style'=>'padding:0; border:0;'));
 			$fset->add(Html::el('input', array('type'=>'hidden', 'name'=>$snippetId.'-id', 'id'=>$snippetId.'-id')));
 			$fset->add(Html::el('label', array('for'=>$snippetId.'-meno', 'style'=>'display: block;'))->add('Názov'));
 			$fset->add(Html::el('input', array(
 												'type' => 'text',
-												'name' => $snippetId.'-meno',
-												'id' => $snippetId.'-meno',
+												'name' => "$snippetId-meno",
+												'id' => "$snippetId-meno",
 												'class' => 'text ui-widget-content ui-corner-all',
 												'style' => 'display:block; width:95%;'
 												)));
 			$treeContainer->add(
-				Html::el('div', array('id'=>$snippetId.'-dform', 'title'=>$snippetId, 'style'=>'font-size: 62.5%;'))
+				Html::el('div', array('id'=>"$snippetId-dform", 'title'=>$snippetId, 'style'=>'font-size: 62.5%;'))
 					->add(Html::el('p', array('class'=>'validateTips', 'style'=>'border: 1px solid transparent; padding: 0.3em;')))
 					->add(Html::el('form')->add($fset))
 				);
 			$treeContainer->add(Html::el('button', array('id'=>$snippetId.'-cnode'))->add('Pridať položku'));
 			}
 		else
-			if ($this->enableAdd && !$this->useUI)
+			if ($this->enableAdd)
 				$treeContainer->add(Html::el('input', array(
 														'type' => 'button',
 														'class' => 'etbtn_add',
 														'onClick' => "jQuery.ajax({ url: '".$prez->link($this->onAdd.'!')."', type: 'POST', complete: function(data){ window.location.reload();}});"
 														)));
+		$treeContainer->add($css);
+		$script->add('});');
+		$treeContainer->add($script);
 		return $treeContainer;
 	}
 
 	/**
-	 * @param TreeViewNode nodes
-	 * @param Nette\Web\Html wrapper
-	 * @return Nette\Web\Html
+	 * @param TreeViewNode $nodes
+	 * @param Html $wrapper
+	 * @return Html
 	 */
 	public function renderNodes($nodes, $wrapper=NULL)
 	{
 		if ($wrapper===NULL)
-			$nodesContainer=Html::el('ul', array('class' => 'page-list', 'style' => "list-style: none; margin: 0; padding: 0; display: block;"));
+			$nodesContainer=Html::el('ul', array('class' => 'page-list', 'style' => 'list-style: none; margin: 0; padding: 0; display: block;'));
 		else
 			$nodesContainer=$wrapper;
 		foreach ($nodes as $n) {
@@ -208,8 +199,8 @@ implements ITreeViewRenderer
 	}
 
 	/**
-	 * @param TreeViewNode
-	 * @return Nette\Web\Html
+	 * @param TreeViewNode $node
+	 * @return Html
 	 */
 	public function renderNode(TreeViewNode $node)
 	{
@@ -235,9 +226,9 @@ implements ITreeViewRenderer
 	}
 
 	/**
-	 * @param TreeViewNode
-	 * @param string name
-	 * @return Nette\Web\Html
+	 * @param TreeViewNode $node
+	 * @param string $name
+	 * @return Html
 	 */
 	public function renderLink(TreeViewNode $node, $name)
 	{
@@ -311,7 +302,7 @@ implements ITreeViewRenderer
 
 	/**
 	 * spracovanie JSON reprezentacie stromu do PHP pola
-	 * @param string tree (JSON)
+	 * @param string $tree (JSON)
 	 * @return array
 	 */
 	static public function parseTree($tree)
