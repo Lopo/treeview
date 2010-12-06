@@ -85,11 +85,10 @@ extends Object
 			." WHERE parentId".(($parent!==NULL && $parent!='NULL')? '='.$parent : ' IS NULL');
 		$pos=$this->db->fetchSingle($sql)+1;
 		$sql="INSERT INTO treeview"
-				." (`id`, position`, `name`, `parentId`, `cb`)"
+				." (`id`, `position`, `name`, `parentId`, `cb`)"
 			." VALUES"
 				." ($id, $pos, '$name', ".($parent!==NULL? $parent : 'NULL').", 1)";
 		$this->query($sql);
-		
 	}
 
 	public function delItem($id=NULL)

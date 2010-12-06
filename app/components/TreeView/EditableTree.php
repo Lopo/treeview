@@ -98,7 +98,7 @@ implements ITreeViewRenderer
 			$css->add(".etbtn_del { background-image: url('".$this->img_cancel."'); background-color: transparent; border: none; width: 16px; height: 16px;}");
 		$treeContainer->add($css);
 
-		if ($this->enableEditName)
+		if ($this->enableEditName && !$this->useUI)
 			$treeContainer->add(
 				Html::el('script', array('type' => 'text/javascript', 'charset' => 'utf-8'))
 					->add(sprintf($this->editJS, $snippetId, $prez->link($this->onEdit.'!')))
@@ -151,6 +151,7 @@ implements ITreeViewRenderer
 									."$(this).dialog('option', 'idval', dlgvals['id']);"
 									."if ($(this).dialog('option', 'nop')=='update')"
 										."meno.val(dlgvals['meno']);"
+									."meno.focus();"
 									."},"
 								."close: function() {"
 									."allFields.val('').removeClass('ui-state-error');"
@@ -178,7 +179,7 @@ implements ITreeViewRenderer
 			$treeContainer->add(Html::el('button', array('id'=>$snippetId.'-cnode'))->add('Pridať položku'));
 			}
 		else
-			if ($this->enableAdd)
+			if ($this->enableAdd && !$this->useUI)
 				$treeContainer->add(Html::el('input', array(
 														'type' => 'button',
 														'class' => 'etbtn_add',

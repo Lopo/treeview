@@ -72,7 +72,7 @@ extends \BasePresenter
 		$vals=$form->getValues();
 		$this->model->setCTree($vals['ctree']);
 	}
-	
+
 	protected function createComponentETree()
 	{
 		$tree=new \TreeView($this, 'eTree');
